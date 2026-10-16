@@ -10,13 +10,13 @@ const PORT = process.env.PORT || 8080;
 
 app.get('/', (req,res)=>{
  res.send(`
-<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>هەڵبژاردن - کەرکوک</title>
+<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>کۆمیسیۆنی سەربەخۆی باڵا</title>
 <style>
 *{box-sizing:border-box;font-family:sans-serif}
 body{margin:0;background:linear-gradient(135deg,#0a0e27,#1a237e);min-height:100vh;color:#fff;display:flex;align-items:center;justify-content:center;padding:20px}
 .box{max-width:900px;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:700px){.box{grid-template-columns:1fr}}
-.left h1{font-size:42px;background:linear-gradient(90deg,#ffd700,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2}
+.left h1{font-size:28px;line-height:1.4;background:linear-gradient(90deg,#ffd700,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .card{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:25px;display:block;text-decoration:none;color:#fff;transition:0.3s}
 .card:hover{transform:translateY(-5px);border-color:#ffd700}
 .btn{display:inline-block;margin-top:12px;padding:10px 20px;border-radius:30px;font-weight:bold;text-decoration:none}
@@ -25,8 +25,8 @@ body{margin:0;background:linear-gradient(135deg,#0a0e27,#1a237e);min-height:100v
 </style></head><body>
 <div class="box">
 <div class="left">
-<h1>هەڵبژاردنی<br>کەرکوک ٢٠٢٤</h1>
-<p style="color:#a5b4fc;margin:15px 0;">سیستەمی تۆمارکردنی دەنگدەر - ١ ملیۆن - پارێزراو</p>
+<h1>کۆمیسیۆنی سەربەخۆی باڵا<br>بۆ هەڵبژاردنەکانی<br>کوردستان و عێراق</h1>
+<p style="color:#a5b4fc;margin:15px 0;font-size:14px;line-height:1.8">سیستەمی تۆمارکردنی دەنگدەر - پارێزراو و نهێنی - ١ ملیۆن دەنگدەر<br>ژمارەی دەنگدەر (رقم الناخب) بنەمای سەرەکییە</p>
 <div>
 <div class="stat">📊 سەرەکی: <span id="m1">0</span></div>
 <div class="stat">✅ تۆمار: <span id="m2">0</span></div>
@@ -34,8 +34,8 @@ body{margin:0;background:linear-gradient(135deg,#0a0e27,#1a237e);min-height:100v
 </div>
 </div>
 <div>
-<a href="/form" class="card"><div style="font-size:35px">🗳️</div><h3>تۆمارکردنی دەنگدەر</h3><p style="font-size:12px;color:#cbd5e1;">فۆڕمی فەرمی - ژمارەی دەنگدەر پێویستە</p><span class="btn gold">چوونە فۆڕم ➡️</span></a>
-<a href="/admin?pass=kirkuk123" class="card" style="margin-top:15px"><div style="font-size:35px">🔐</div><h3>پانێڵی ئەدمین</h3><p style="font-size:12px;color:#cbd5e1;">بارکردن و داگرتن - تەنها بۆ تۆ</p><span class="btn blue">چوونە ژوورەوە 🔑</span></a>
+<a href="/form" class="card"><div style="font-size:35px">🗳️</div><h3>تۆمارکردنی دەنگدەر</h3><p style="font-size:12px;color:#cbd5e1;">فۆڕمی فەرمی - ژمارەی دەنگدەر پێویستە - خۆکار دەڵێت لە لیست هەیە</p><span class="btn gold">چوونە فۆڕم ➡️</span></a>
+<a href="/admin?pass=kirkuk123" class="card" style="margin-top:15px"><div style="font-size:35px">🔐</div><h3>پانێڵی ئەدمین</h3><p style="font-size:12px;color:#cbd5e1;">بارکردنی لیستی ١ ملیۆن، بینینی سەوزەکان، داگرتن</p><span class="btn blue">چوونە ژوورەوە 🔑</span></a>
 </div>
 </div>
 <script>
@@ -60,6 +60,7 @@ input{width:100%;padding:14px;margin:8px 0;border:1px solid #ddd;border-radius:1
 </style></head><body>
 <div class="card">
 <h2 style="text-align:center;color:#1a237e">🗳️ تۆمارکردنی دەنگدەر</h2>
+<p style="text-align:center;color:#64748b;font-size:12px">کۆمیسیۆنی سەربەخۆی باڵا بۆ هەڵبژاردنەکانی کوردستان و عێراق</p>
 <input id="name" placeholder="ناوی تەواو">
 <input id="voter" class="voter" placeholder="ژمارەی دەنگدەر (رقم الناخب) *" oninput="check()">
 <div id="info" class="ok"></div>
@@ -69,7 +70,7 @@ input{width:100%;padding:14px;margin:8px 0;border:1px solid #ddd;border-radius:1
 <input id="note" placeholder="تێبینی">
 <p id="loc" style="font-size:11px;color:#888;text-align:center">📍 شوێن: وەردەگیرێت...</p>
 <button class="btn" onclick="add()">✅ ناردن</button>
-<div id="ok" class="success">✅ بەڵێ لە لیستەکە هەیە - سەوز بوو لای ئەدمین!</div>
+<div id="ok" class="success">✅ بەڵێ لە لیستەکە هەیە - سەوز بوو!</div>
 <a href="/" style="display:block;text-align:center;margin-top:12px;font-size:13px;color:#1a237e;text-decoration:none">⬅️ گەڕانەوە</a>
 </div>
 <script>
@@ -108,7 +109,7 @@ app.get('/admin',(req,res)=>{
 <!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin</title>
 <style>body{margin:0;padding:15px;background:#0f172a;font-family:sans-serif}.card{background:#fff;max-width:900px;margin:15px auto;padding:20px;border-radius:20px;color:#000}
 .stat{display:flex;gap:10px}.stat div{flex:1;background:#1a237e;color:#fff;padding:12px;border-radius:12px;text-align:center}
-.btn{padding:10px 15px;border:none;border-radius:10px;color:#fff;font-weight:bold;cursor:pointer;margin:3px;font-size:12px}.green{background:#22c55e}.blue{background:#1a237e}.red{background:#ef4444}
+.btn{padding:10px 15px;border:none;border-radius:10px;color:#fff;font-weight:bold;cursor:pointer;margin:3px;font-size:12px}.green{background:#22c55e}.blue{background:#1a237e}
 table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}th{background:#1a237e;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee}
 .green-row{background:#dcfce7 !important;border-right:5px solid #22c55e}
 .badge{background:#22c55e;color:#fff;padding:4px 10px;border-radius:20px;font-size:11px}
@@ -143,7 +144,7 @@ async function up(){
  if(!file)return alert('فایل هەڵبژێرە');
  let st=document.getElementById('st');st.innerHTML='⏳ خوێندنەوە...';
  let text=await file.text();
- let lines=text.split('\\n').filter(l=>l.trim());
+ let lines=text.split('\n').filter(l=>l.trim());
  let data=[];
  let start=lines[0].toLowerCase().includes('voter')?1:0;
  for(let i=start;i<lines.length;i++){
@@ -195,11 +196,11 @@ app.post('/api/upload',(req,res)=>{
 });
 app.get('/api/download',(req,res)=>{
  if(req.query.pass!==ADMIN_PASSWORD) return res.status(401).send('no');
- let csv="No,Voter,Name,City,Phone,InMaster,Date,Time\\n";
- members.forEach((m,i)=>{csv+=(i+1)+','+m.voter+',"'+(m.name||'')+'","'+(m.city||'')+'","'+(m.phone||'')+'",'+(m.inMaster?'YES':'NO')+','+m.date+','+m.time+'\\n';});
+ let csv="No,Voter,Name,City,Phone,InMaster,Date,Time\n";
+ members.forEach((m,i)=>{csv+=(i+1)+','+m.voter+',"'+(m.name||'')+'","'+(m.city||'')+'","'+(m.phone||'')+'",'+(m.inMaster?'YES':'NO')+','+m.date+','+m.time+'\n';});
  res.setHeader('Content-Disposition','attachment; filename=SEWZ-'+members.length+'.csv');
  res.setHeader('Content-Type','text/csv; charset=utf-8');
- res.send("\\uFEFF"+csv);
+ res.send("\uFEFF"+csv);
 });
 app.get('/api/search',(req,res)=>{
  if(req.query.pass!==ADMIN_PASSWORD) return res.json({});
