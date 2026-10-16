@@ -8,205 +8,212 @@ let masterList = [];
 let masterMap = new Map();
 const ADMIN_PASSWORD = "kirkuk123";
 
+// ===== واجیهەی سەرەکی جوانی هەڵبژاردن =====
 app.get('/', (req, res) => {
   res.send(`
-<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>فۆڕم</title><style>
-body{background:#f0f2f5;margin:0;padding:15px;font-family:sans-serif}
-.card{background:#fff;max-width:500px;margin:30px auto;padding:25px;border-radius:15px;box-shadow:0 2px 15px rgba(0,0,0,0.1)}
-h2{text-align:center;color:#1a237e}input{width:100%;padding:14px;margin:10px 0;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box}
-.btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:17px;font-weight:bold;cursor:pointer;color:#fff;background:#1a237e}
-.voter{border:3px solid #28a745 !important;background:#e8f5e9 !important;font-weight:bold;}
-.success{background:#d4edda;color:#155724;padding:15px;border-radius:10px;text-align:center;margin-top:15px;display:none;border:2px solid #28a745;}
-.info{padding:12px;border-radius:10px;font-size:13px;margin:10px 0;display:none;font-weight:bold;text-align:center}
-.info.ok{background:#d4edda;color:#155724;border:2px solid #28a745;}
-.info.no{background:#fff3cd;color:#856404;border:2px solid #ffc107;}
-</style></head><body>
-<div class="card">
-<h2>🗳️ فۆڕمی تۆمارکردن</h2>
-<input id="name" placeholder="ناوی تەواو">
-<input id="voter" class="voter" placeholder="ژمارەی دەنگدەر (رقم الناخب) *" oninput="checkVoter()">
-<div id="voterInfo" class="info"></div>
-<input id="phone" placeholder="مۆبایل">
-<input id="city" placeholder="شار">
-<input id="note" placeholder="تێبینی">
-<p id="locStatus" style="font-size:11px;color:#888;text-align:center;">📍 شوێن: وەردەگیرێت...</p>
-<button class="btn" onclick="add()">✅ ناردن</button>
-<div id="success" class="success">✅ سوپاس! تۆمارکرا</div>
+<!DOCTYPE html>
+<html dir="rtl" lang="ku">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>هەڵبژاردن - کەرکوک | Kirkuk Election</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Kufi Arabic', sans-serif;}
+body{background:#0a0e27;overflow-x:hidden;color:#fff;}
+.hero{
+  min-height:100vh;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a237e 50%, #0f172a 100%);
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.hero::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;bottom:0;
+  background: url('https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=1200') center/cover;
+  opacity:0.15;
+}
+.hero-content{
+  position:relative;
+  z-index:2;
+  max-width:1100px;
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:40px;
+  align-items:center;
+}
+@media(max-width:768px){.hero-content{grid-template-columns:1fr;text-align:center;}}
+.logo-area h1{
+  font-size:48px;
+  font-weight:700;
+  background: linear-gradient(90deg, #ffd700, #fff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  line-height:1.2;
+  margin-bottom:15px;
+}
+.logo-area .subtitle{
+  font-size:22px;
+  color:#a5b4fc;
+  margin-bottom:10px;
+}
+.logo-area .desc{
+  font-size:15px;
+  color:#94a3b8;
+  line-height:1.8;
+  margin-bottom:30px;
+}
+.ballot-box{
+  font-size:120px;
+  text-align:center;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+.cards{display:grid;gap:20px;}
+.card{
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:20px;
+  padding:25px;
+  transition: all 0.3s;
+  cursor:pointer;
+  text-decoration:none;
+  display:block;
+}
+.card:hover{
+  transform:translateY(-5px);
+  background: rgba(255,255,255,0.12);
+  border-color: #ffd700;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.card .icon{font-size:40px;margin-bottom:15px;}
+.card h3{font-size:20px;margin-bottom:8px;color:#fff;}
+.card p{font-size:13px;color:#cbd5e1;line-height:1.6;}
+.card .btn{
+  margin-top:15px;
+  display:inline-block;
+  padding:12px 25px;
+  border-radius:50px;
+  font-weight:bold;
+  font-size:14px;
+  text-decoration:none;
+}
+.btn-gold{background: linear-gradient(90deg, #ffd700, #ffed4e);color:#000;}
+.btn-blue{background: linear-gradient(90deg, #1a237e, #3949ab);color:#fff;}
+.btn-green{background: linear-gradient(90deg, #0f9d58, #34d399);color:#fff;}
+.stats{
+  display:flex;
+  gap:15px;
+  margin-top:25px;
+  flex-wrap:wrap;
+}
+.stat{
+  background: rgba(0,0,0,0.3);
+  padding:12px 20px;
+  border-radius:50px;
+  font-size:13px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.stat span{color:#ffd700;font-weight:bold;}
+.footer{
+  position:absolute;
+  bottom:15px;
+  left:0;right:0;
+  text-align:center;
+  font-size:11px;
+  color:#64748b;
+  z-index:2;
+}
+.pulse{
+  display:inline-block;
+  width:10px;height:10px;
+  background:#22c55e;
+  border-radius:50%;
+  animation: pulse 2s infinite;
+  margin-left:8px;
+}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,0.7)}70%{box-shadow:0 0 0 10px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-content">
+    <div class="logo-area">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <div class="pulse"></div>
+        <span style="font-size:13px;color:#22c55e;">سیستەم چالاکە - Live System</span>
+      </div>
+      <h1>هەڵبژاردنی<br>کەرکوک ٢٠٢٤</h1>
+      <div class="subtitle">Kirkuk Election System</div>
+      <div class="desc">
+        سیستەمی تۆمارکردنی دەنگدەرانی پارێزگای کەرکوک<br>
+        بە شێوەیەکی پارێزراو و نهێنی - ١ ملیۆن دەنگدەر<br>
+        ژمارەی دەنگدەر (رقم الناخب) بنەمای سەرەکییە
+      </div>
+      <div class="stats">
+        <div class="stat">📊 لیستی سەرەکی: <span id="m1">0</span></div>
+        <div class="stat">✅ تۆمارکراو: <span id="m2">0</span></div>
+        <div class="stat">🟢 لە لیست: <span id="m3">0</span></div>
+      </div>
+    </div>
+    
+    <div class="cards">
+      <a href="/form" class="card">
+        <div class="icon">🗳️</div>
+        <h3>تۆمارکردنی دەنگدەر</h3>
+        <p>فۆڕمی فەرمی تۆمارکردن - ژمارەی دەنگدەر (رقم الناخب) پێویستە، خۆکار دەڵێت لە لیستەکە هەیە یان نا</p>
+        <div class="btn btn-gold">➡️ چوونە فۆڕم</div>
+      </a>
+      
+      <a href="/admin?pass=kirkuk123" class="card">
+        <div class="icon">🔐</div>
+        <h3>پانێڵی ئەدمین</h3>
+        <p>تەنها بۆ بەڕێوەبەر - بارکردنی لیستی ١ ملیۆن، بینینی سەوزەکان، داگرتن وەک Excel</p>
+        <div class="btn btn-blue">🔑 چوونە ژوورەوە</div>
+      </a>
+      
+      <div class="card" style="background: rgba(15,157,88,0.15); border-color: rgba(34,197,94,0.3);">
+        <div class="icon">📍</div>
+        <h3>سیستەمی پارێزراو</h3>
+        <p>✅ شوێن و کات تۆمار دەکرێت ✅ ژمارەی دەنگدەر بە سەوزی ✅ ١ ملیۆن هەڵدەگرێت ✅ نهێنی</p>
+        <div style="margin-top:10px; font-size:12px; color:#86efac;">🟢 سیستەم ئامادەیە بۆ هەڵبژاردن</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">© 2024 هەڵبژاردنی کەرکوک - پارێزراو و نهێنی | Kirkuk Election System</div>
 </div>
+
 <script>
-let loc="نەزانراو",lat="",lng="";
-if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>{lat=p.coords.latitude;lng=p.coords.longitude;loc=lat.toFixed(4)+","+lng.toFixed(4);document.getElementById('locStatus').innerHTML="📍 شوێن: تۆمارکرا ✅";},e=>{loc="بێ شوێن";});}
-async function checkVoter(){
-  const voter=document.getElementById('voter').value.trim();
-  const div=document.getElementById('voterInfo');
-  if(!voter){div.style.display='none';return;}
-  const res=await fetch('/api/check-voter?v='+encodeURIComponent(voter));
-  const data=await res.json();
-  div.style.display='block';
-  if(data.found){
-    div.className='info ok';
-    div.innerHTML='✅ بەڵێ لە لیستەکە هەیە<br>ناو: '+(data.info.name||'')+'<br>شار: '+(data.info.city||'')+'<br>ژمارە: '+data.info.voter;
-    // ئۆتۆماتیک ناو و شار پڕ بکەرەوە
-    if(data.info.name && !document.getElementById('name').value) document.getElementById('name').value=data.info.name;
-    if(data.info.city && !document.getElementById('city').value) document.getElementById('city').value=data.info.city;
-  } else {
-    if(data.totalMaster>0){
-      div.className='info no';
-      div.innerHTML='❌ لە لیستی سەرەکی نیە';
-    } else {
-      div.style.display='none';
-    }
-  }
+async function loadStats(){
+  try{
+    const res=await fetch('/api/counts?pass=kirkuk123');
+    const data=await res.json();
+    document.getElementById('m1').innerText=data.master?.toLocaleString()||'0';
+    document.getElementById('m2').innerText=data.members?.toLocaleString()||'0';
+    document.getElementById('m3').innerText=data.green?.toLocaleString()||'0';
+  }catch(e){}
 }
-async function add(){
-  const name=document.getElementById('name').value.trim();
-  const voter=document.getElementById('voter').value.trim();
-  if(!name||!voter){alert('ناو و ژمارەی دەنگدەر پێویستە');return;}
-  const phone=document.getElementById('phone').value.trim();
-  const city=document.getElementById('city').value.trim();
-  const note=document.getElementById('note').value.trim();
-  const res=await fetch('/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,voter,phone,city,note,location:loc,lat,lng})});
-  if((await res.json()).ok){
-    document.getElementById('name').value='';document.getElementById('voter').value='';document.getElementById('phone').value='';document.getElementById('city').value='';document.getElementById('note').value='';
-    document.getElementById('voterInfo').style.display='none';
-    document.getElementById('success').style.display='block';setTimeout(()=>document.getElementById('success').style.display='none',4000);
-  }
-}
-</script></body></html>
+loadStats();
+setInterval(loadStats,5000);
+</script>
+</body>
+</html>
 `);
 });
 
-app.get('/admin', (req, res) => {
-  if(req.query.pass !== ADMIN_PASSWORD){
-    return res.send(`<html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#1a237e;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:sans-serif}.card{background:#fff;padding:30px;border-radius:15px;max-width:350px;width:90%;text-align:center}input{width:100%;padding:12px;margin:10px 0;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}.btn{width:100%;padding:12px;background:#1a237e;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer}</style></head><body><div class="card"><h2>🔐 ئەدمین</h2><input type="password" id="p" placeholder="پاسۆرد"><button class="btn" onclick="location.href='/admin?pass='+document.getElementById('p').value">چوونەژوورەوە</button></div></body></html>`);
-  }
+// فۆڕمەکە - ئێستا لە /form
+app.get('/form', (req, res) => {
   res.send(`
-<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin</title><style>
-body{background:#0f172a;margin:0;padding:15px;font-family:sans-serif}
-.card{background:#fff;color:#000;max-width:900px;margin:15px auto;padding:20px;border-radius:15px}
-h2{text-align:center;color:#1a237e}
-.stat{display:flex;gap:10px;margin:15px 0}
-.stat div{flex:1;background:#1a237e;color:#fff;padding:15px;border-radius:10px;text-align:center}
-.stat h2{color:#fff;margin:5px 0}
-.btn{padding:10px 15px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;color:#fff;margin:4px;font-size:12px}
-.green{background:#0f9d58}.blue{background:#1a237e}.orange{background:#ff9800}.red{background:#ea4335}
-input{width:100%;padding:12px;margin:8px 0;border:2px solid #ddd;border-radius:8px;box-sizing:border-box}
-.upload-area{border:3px dashed #1a237e;padding:15px;border-radius:12px;text-align:center;background:#f8f9ff;margin:10px 0}
-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:15px}th{background:#1a237e;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee}
-.row-green{background:#d4edda !important;border-left:5px solid #28a745;}
-.row-green td{color:#155724;font-weight:bold;}
-.badge-green{background:#28a745;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:bold;}
-.badge-red{background:#dc3545;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;}
-</style></head><body>
-<div class="card">
-<h2>📊 سێرڤەر - سەوز = لە لیستەکە هەیە</h2>
-<div class="stat">
-<div><small>لیستی سەرەکی</small><h2 id="masterCount">0</h2></div>
-<div><small>تۆمارکراو</small><h2 id="memberCount">0</h2></div>
-<div style="background:#28a745;"><small>سەوز (لە لیست)</small><h2 id="greenCount">0</h2></div>
-</div>
-
-<div class="upload-area">
-<b>📤 بارکردنی لیستی ١ ملیۆن</b><br>
-<input type="file" id="file" accept=".csv"><br>
-<button class="btn blue" onclick="uploadFile()">بارکردن</button>
-<div id="uploadStatus" style="font-size:12px;margin-top:8px;"></div>
-</div>
-
-<h3>📋 دوایین تۆمارکراوەکان - سەوز = لە لیستەکە هەیە</h3>
-<div style="overflow-x:auto;max-height:500px;overflow-y:auto;">
-<table><thead><tr><th>#</th><th>ناو</th><th>ژمارەی دەنگدەر</th><th>لە لیست؟</th><th>مۆبایل</th><th>شار</th><th>کات</th></tr></thead><tbody id="tbody"></tbody></table>
-</div>
-
-<div style="text-align:center;margin-top:15px;">
-<button class="btn green" onclick="load()">🔄 نوێکردنەوە</button>
-<button class="btn blue" onclick="download()">📥 داگرتنی هەموو</button>
-</div>
-
-<input id="search" placeholder="گەڕان بە ژمارەی دەنگدەر - Enter" style="margin-top:15px;">
-<div id="searchResult"></div>
-</div>
-<script>
-async function update(){
-  const res=await fetch('/api/counts?pass=${ADMIN_PASSWORD}');
-  const data=await res.json();
-  document.getElementById('masterCount').innerText=data.master.toLocaleString();
-  document.getElementById('memberCount').innerText=data.members.toLocaleString();
-  document.getElementById('greenCount').innerText=data.green.toLocaleString();
-  const tbody=document.getElementById('tbody');
-  tbody.innerHTML='';
-  data.recent.forEach((m,i)=>{
-    const isGreen=m.inMaster;
-    const cls=isGreen?'row-green':'';
-    const badge=isGreen?'<span class="badge-green">✅ بەڵێ - سەوز</span>':'<span class="badge-red">❌ نیە</span>';
-    tbody.innerHTML+='<tr class="'+cls+'"><td>'+(i+1)+'</td><td><b>'+m.name+'</b><br><small>'+(m.masterName||'')+'</small></td><td style="font-weight:bold;font-size:13px">'+m.voter+'</td><td>'+badge+'</td><td>'+(m.phone||'-')+'</td><td>'+(m.city||'-')+'</td><td style="font-size:10px">'+m.date+'<br>'+m.time+'</td></tr>';
-  });
-}
-async function uploadFile(){
-  const file=document.getElementById('file').files[0];
-  if(!file)return alert('فایل هەڵبژێرە');
-  const status=document.getElementById('uploadStatus');
-  status.innerHTML='⏳ خوێندنەوە...';
-  const text=await file.text();
-  const lines=text.split('\\n').filter(l=>l.trim());
-  let data=[];
-  const start=lines[0].toLowerCase().includes('voter')?1:0;
-  for(let i=start;i<lines.length;i++){
-    const p=lines[i].split(',').map(s=>s.trim().replace(/^"|"$/g,''));
-    if(p[0]) data.push({voter:p[0], name:p[1]||'', city:p[2]||'', phone:p[3]||''});
-  }
-  status.innerHTML='⏳ ناردن: '+data.length.toLocaleString()+'...';
-  const res=await fetch('/api/upload-master?pass=${ADMIN_PASSWORD}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({list:data})});
-  const r=await res.json();
-  status.innerHTML='✅ '+r.count.toLocaleString()+' بارکرا - ئێستا هەموو شت سەوز دەبێت!';
-  update();
-}
-function download(){window.location.href='/api/download?pass=${ADMIN_PASSWORD}';}
-document.getElementById('search').addEventListener('keypress', async(e)=>{
-  if(e.key==='Enter'){
-    const q=e.target.value.trim();if(!q)return;
-    const res=await fetch('/api/search-all?pass=${ADMIN_PASSWORD}&q='+encodeURIComponent(q));
-    const d=await res.json();
-    document.getElementById('searchResult').innerHTML='<div style="background:'+(d.masterFound?'#d4edda':'#fff3cd')+';padding:15px;border-radius:10px;margin-top:10px;border:2px solid '+(d.masterFound?'#28a745':'#ffc107')+';"><b>ئەنجام:</b> '+(d.masterFound?'✅ <b style="color:green">بەڵێ لە لیستەکە هەیە - سەوز</b> - '+d.masterInfo.name:'❌ لە لیستەکە نیە')+'</div>';
-  }
-});
-async function load(){update();}
-update();setInterval(update,10000);
-</script></body></html>
-`);
-});
-
-app.get('/api/check-voter', (req, res) => {
-  const v=req.query.v; const found=masterMap.has(v);
-  res.json({ found, info: found?masterMap.get(v):null, totalMaster: masterList.length });
-});
-app.post('/add', (req, res) => {
-  const { name, voter, phone, city, note, location, lat, lng } = req.body;
-  const now=new Date(); const masterInfo=masterMap.get(voter);
-  members.push({ id: Date.now()+Math.random(), name, voter, phone, city, note, location, lat, lng, date: now.toLocaleDateString('en-GB'), time: now.toLocaleTimeString('en-GB'), inMaster: !!masterInfo, masterName: masterInfo?.name||'' });
-  res.json({ ok: true });
-});
-app.get('/api/counts', (req, res) => {
-  if(req.query.pass!==ADMIN_PASSWORD) return res.status(401).json({});
-  const green=members.filter(m=>m.inMaster).length;
-  res.json({ master: masterList.length, members: members.length, green, recent: members.slice(-100).reverse() });
-});
-app.post('/api/upload-master', (req, res) => {
-  if(req.query.pass!==ADMIN_PASSWORD) return res.status(401).json({ok:false});
-  const list=req.body.list||[]; masterList=list; masterMap.clear(); list.forEach(i=>{ if(i.voter) masterMap.set(i.voter,i); });
-  res.json({ ok:true, count: masterList.length });
-});
-app.get('/api/download', (req, res) => {
-  if(req.query.pass!==ADMIN_PASSWORD) return res.status(401).send('No');
-  let csv="No,Voter,Name,City,Phone,InMaster,MasterName,Location,Date,Time,Note\n";
-  members.forEach((m,i)=>{ csv+= [i+1,m.voter,'"'+(m.name||'').replace(/"/g,'""')+'"', '"'+(m.city||'')+'"', '"'+(m.phone||'')+'"', m.inMaster?'YES':'NO', '"'+(m.masterName||'')+'"', '"'+(m.location||'')+'"', m.date,m.time,'"'+(m.note||'').replace(/"/g,'""')+'"'].join(',')+"\n"; });
-  res.setHeader('Content-Disposition','attachment; filename=SEWZ-'+members.length+'.csv');
-  res.setHeader('Content-Type','text/csv; charset=utf-8');
-  res.send("\uFEFF"+csv);
-});
-app.get('/api/search-all', (req, res) => {
-  if(req.query.pass!==ADMIN_PASSWORD) return res.json({});
-  const q=req.query.q||''; const masterInfo=masterMap.get(q);
-  res.json({ masterFound:!!masterInfo, masterInfo });
-});
-app.listen(PORT);
+<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>فۆڕم</title><style>
+body{background: linear-gradient(135deg, #0a0e27, #1a237e);margin:0;padding:15px;font-family:sans-serif;min-height:100vh}
+.card{background:#fff;max-width:500px;margin:30px auto;padding:25px;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.4)}
+h2{text-align:center;color:#1a237e}input{width:100%;padding:14px;margin:10px 0;border:1px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:17px;font-weight:bold;cursor:pointer;color:#fff;background:linear-gradient(90deg,#1a237e,#3949ab)}
+.voter{border:3px solid #22c55e !important;background:#f0fdf4 !important;font-weight:bold;font-size:18px !important;text-align:center}
+.success{background:#dcfce7;color:#166534;padding:15px;border-radius:12px;text-align:center;margin-top:15px;display
