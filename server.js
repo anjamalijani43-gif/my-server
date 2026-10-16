@@ -1,36 +1,122 @@
 const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 8080;
+
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.urlencoded({ extended: true }));
 
-const DB_FILE = 'data.json';
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]');
+let members = [];
 
-app.get('/api/data', (req, res) => {
-  const data = JSON.parse(fs.readFileSync(DB_FILE));
-  res.json(data);
+app.get('/', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html dir="rtl" lang="ku">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لیستی ئەندامان - Anjam</title>
+<style>
+* { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+body { background: #f0f2f5; margin:0; padding:15px; }
+.card { background:white; max-width:600px; margin:15px auto; padding:20px; border-radius:15px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+h2 { text-align:center; margin:0 0 15px; color:#1a73e8; }
+input { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; font-size:16px; }
+.btn { width:100%; padding:13px; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; color:white; }
+.btn-blue { background:#1a73e8; }
+.btn-green { background:#0f9d58; margin-top:10px; }
+.btn-red { background:#ea4335; padding:6px 10px; font-size:13px; width:auto; }
+table { width:100%; border-collapse:collapse; margin-top:15px; }
+th, td { padding:10px 8px; border-bottom:1px solid #eee; text-align:right; font-size:14px; }
+th { background:#f8f9fa; }
+.badge { background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:10px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>🚀 زیادکردنی ئەندامی نوێ</h2>
+  <input id="name" placeholder="ناوی ئەندام - بۆ نموونە: ئەنجام">
+  <input id="phone" placeholder="ژمارەی مۆبایل - بۆ نموونە: 0770...">
+  <input id="city" placeholder="شار - بۆ نموونە: کەرکوک">
+  <input id="note" placeholder="تێبینی - بۆ نموونە: سلاو">
+  <button class="btn btn-blue" onclick="addMember()">➕ زیادکردن بۆ سێرڤەر</button>
+</div>
+
+<div class="card">
+  <h2>📋 لیستی هەموو ئەندامەکان: <span class="badge" id="count">0</span></h2>
+  <div style="overflow-x:auto">
+  <table id="table">
+    <thead><tr><th>#</th><th>ناو</th><th>مۆبایل</th><th>شار</th><th>تێبینی</th><th>کات</th><th>سڕینەوە</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  </div>
+  <button class="btn btn-green" onclick="loadMembers()">🔄 وەرگرتنەوە / نوێکردنەوە</button>
+  <button class="btn" style="background:#5f6368; margin-top:8px;" onclick="exportCSV()">📥 داگرتنی لیست وەک Excel</button>
+</div>
+
+<script>
+async function addMember(){
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const city = document.getElementById('city').value.trim();
+  const note = document.getElementById('note').value.trim();
+  if(!name){ alert('تکایە ناو بنووسە'); return; }
+  const res = await fetch('/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, phone, city, note}) });
+  const data = await res.json();
+  if(data.ok){
+    document.getElementById('name').value=''; document.getElementById('phone').value=''; document.getElementById('city').value=''; document.getElementById('note').value='';
+    loadMembers();
+  }
+}
+async function loadMembers(){
+  const res = await fetch('/list');
+  const list = await res.json();
+  document.getElementById('count').innerText = list.length;
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  list.forEach((m,i)=>{
+    tbody.innerHTML += \`<tr><td>\${i+1}</td><td><b>\${m.name}</b></td><td>\${m.phone||'-'}</td><td>\${m.city||'-'}</td><td>\${m.note||'-'}</td><td style="font-size:11px">\${m.time}</td><td><button class="btn btn-red" onclick="del(\${m.id})">X</button></td></tr>\`;
+  });
+}
+async function del(id){
+  if(!confirm('دڵنیای بیسڕیتەوە؟')) return;
+  await fetch('/delete/'+id, {method:'DELETE'});
+  loadMembers();
+}
+function exportCSV(){
+  window.location = '/export';
+}
+loadMembers();
+setInterval(loadMembers, 5000);
+</script>
+</body>
+</html>
+  `);
 });
 
-app.post('/api/data', (req, res) => {
-  const data = JSON.parse(fs.readFileSync(DB_FILE));
-  const newItem = { id: Date.now(), ...req.body, time: new Date().toLocaleString() };
-  data.push(newItem);
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  res.json({ success: true });
+app.post('/add', (req, res) => {
+  const { name, phone, city, note } = req.body;
+  members.push({ id: Date.now(), name, phone, city, note, time: new Date().toLocaleString('ku-IQ') });
+  res.json({ ok: true });
 });
 
-app.delete('/api/data/:id', (req, res) => {
-  let data = JSON.parse(fs.readFileSync(DB_FILE));
-  data = data.filter(item => item.id != req.params.id);
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  res.json({ success: true });
+app.get('/list', (req, res) => {
+  res.json(members.slice().reverse());
 });
 
-const PORT = process.env.PORT||3000
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.delete('/delete/:id', (req, res) => {
+  members = members.filter(m => m.id != req.params.id);
+  res.json({ ok: true });
 });
+
+app.get('/export', (req, res) => {
+  let csv = 'ID,Name,Phone,City,Note,Time\n';
+  members.forEach(m => {
+    csv += `${m.id},"${m.name}","${m.phone}","${m.city}","${m.note}","${m.time}"\n`;
+  });
+  res.header('Content-Type', 'text/csv');
+  res.attachment('members-list.csv');
+  res.send(csv);
+});
+
+app.listen(PORT, () => console.log('Server running on', PORT));
