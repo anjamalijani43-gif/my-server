@@ -1,58 +1,34 @@
 const express = require('express');
 const app = express();
 app.use(express.json({limit:'100mb'}));
-app.use(express.urlencoded({extended:true, limit:'100mb'}));
-
-let master = {};
-let green = [];
-
-app.get('/', (req,res) => res.send('<h1>Server Online</h1><a href="/m">Go to /m</a> | <a href="/stats">Stats</a>'));
-
-app.get('/m', (req,res) => {
-  res.send(`
-  <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:sans-serif;padding:20px;max-width:600px;margin:auto}input{width:70%;padding:12px}button{padding:12px 20px}table{width:100%;margin-top:20px;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}</style></head>
-  <body><h2>گەڕان بە ژمارەی دەنگدەر</h2>
-  <form onsubmit="search(event)"><input id="v" placeholder="ژمارەی دەنگدەر"><button>گەڕان</button></form>
-  <div id="out"></div>
-  <h3>لیستی سەوز: ${green.length}</h3>
-  <table><tr><th>ژمارە</th><th>ناو</th></tr>${green.slice(-50).reverse().map(x=>`<tr><td>${x.voter}</td><td>${x.name||''}</td></tr>`).join('')}</table>
-  <script>
-  async function search(e){
-    e.preventDefault();
-    let v=document.getElementById('v').value;
-    let r=await fetch('/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voter:v})});
-    let j=await r.json();
-    document.getElementById('out').innerHTML=j.ok?'<p style="color:green">✅ زیادکرا: '+(j.data.name||v)+'</p>':'<p style="color:red">❌ '+ (j.msg||'نەدۆزرایەوە') +'</p>';
-    if(j.ok) setTimeout(()=>location.reload(),800);
-  }
-  </script></body></html>
-  `);
+let master={},green=[];
+app.get('/',(q,r)=>r.send('ok <a href="/m">/m</a>'));
+app.get('/m',(q,r)=>{
+let h='<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:sans-serif;padding:20px}input{padding:10px;width:60%}button{padding:10px}table{width:100%;border-collapse:collapse}td{border:1px solid #ccc;padding:6px}</style></head><body><h2>Search</h2><form onsubmit="go(event)"><input id="v" placeholder="voter number"><button>search</button></form><div id="o"></div><h3>Green: '+green.length+'</h3><table>';
+for(let i=green.length-1;i>=0&&i>green.length-50;i--){let x=green[i];h+='<tr><td>'+x.voter+'</td><td>'+(x.name||'')+'</td></tr>'}
+h+='</table><script>async function go(e){e.preventDefault();let v=document.getElementById("v").value;let r=await fetch("/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voter:v})});let j=await r.json();document.getElementById("o").innerHTML=j.ok?"<p style=color:green>added "+(j.data.name||v)+"</p>":"<p style=color:red>"+(j.msg||"not found")+"</p>";if(j.ok)setTimeout(()=>location.reload(),700)}</script></body></html>';
+r.send(h);
 });
-
-app.get('/stats', (req,res) => res.json({master:Object.keys(master).length, green:green.length, greenList:green.slice(-20)}));
-
-app.post('/add', (req,res) => {
-  let v=(req.body.voter||'').toString().replace(/\D/g,'');
-  if(v.length<6) return res.json({ok:false,msg:'ژمارە هەڵەیە'});
-  if(green.find(z=>z.voter==v)) return res.json({ok:false,msg:'پێشتر زیادکراوە'});
-  let f=master[v];
-  if(!f) return res.json({ok:false,msg:'لە master نییە'});
-  green.push(f);
-  res.json({ok:true,data:f});
+app.get('/stats',(q,r)=>r.json({m:Object.keys(master).length,g:green.length}));
+app.post('/add',(q,r)=>{
+let v=(q.body.voter||'').toString().replace(/\D/g,'');
+if(v.length<5)return r.json({ok:false,msg:'bad number'});
+if(green.find(z=>z.voter==v))return r.json({ok:false,msg:'already added'});
+let f=master[v];
+if(!f)return r.json({ok:false,msg:'not in master'});
+green.push(f);
+r.json({ok:true,data:[STRIPPED]
 });
-
-app.post('/upload-master', (req,res) => {
-  let text=req.body.text||'';
-  let count=0;
-  text.split('\n').forEach(line=>{
-    if(!line.trim()) return;
-    let parts=line.split(',');
-    let v=(parts[0]||'').replace(/\D/g,'').trim();
-    if(v.length<5) return;
-    master[v]={voter:v,name:(parts[1]||'').trim(),extra:parts.slice(2).join(',')};
-    count++;
-  });
-  res.json({ok:true,count:Object.keys(master).length,added:count});
+app.post('/upload-master',(q,r)=>{
+let c=0;
+(q.body.text||'').split('\n').forEach(l=>{
+if(!l.trim())return;
+let p=l.split(',');
+let v=(p[0]||'').replace(/\D/g,'').trim();
+if(v.length<5)return;
+master[v]={voter:v,name:(p[1]||'').trim()};
+c++;
 });
-
-app.get('/clear-green', (req,res)=>{ green
+r.json({ok:true,count:Object.keys(master).length,added:c});
+});
+app.listen(process.env.PORT||8080,'0.0.0.0',()=>console.log('up'));
