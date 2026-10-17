@@ -15,7 +15,7 @@ app.post('/add', function(req,res){
  var f=master[v];
  if(!f) return res.json({ok:false,msg:'la 1m nia'});
  green.push(f);
- res.json({ok:true,data:[STRIPPED]
+ res.json({ok:true,data:f
 });
 app.post('/upload-master', function(req,res){
  var text=req.body.text||'';var c=0;
