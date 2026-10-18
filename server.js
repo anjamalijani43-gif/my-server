@@ -8,3 +8,5 @@ res.send('<html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" cont
 });
 
 app.listen(process.env.PORT||3000,()=>console.log("Running"));
+app.get('/admin', (req,res)=> res.redirect('/'));
+app.get('*', (req,res)=> res.redirect('/'));
