@@ -1,94 +1,106 @@
 const express = require('express');
 const app = express();
-app.use(express.json({limit:'100mb'}));
-app.use(express.urlencoded({extended:true,limit:'100mb'}));
-app.set('trust proxy', true);
-let master={},green=[];
+const PORT = process.env.PORT || 8080;
 
-function adminHTML(){
-let m=Object.keys(master).length;
-let g=green.length;
-let last=green.slice(-50).reverse();
-let rows="";
-last.forEach((x,i)=>{
-let timeStr=x.time?new Date(x.time).toLocaleString('ku-IQ'):"";
-let loc=x.lat? (x.lat.toFixed(4)+","+x.lon.toFixed(4)) : (x.city||"-");
-let device=(x.device||"").substring(0,30);
-rows+="<tr><td>"+(i+1)+"</td><td>"+(x.name||"")+"</td><td>"+x.voter+"</td><td style='color:green'>سه وز</td><td title='"+device+"'>"+loc+"</td><td style='font-size:10px'>"+timeStr+"<br>"+device+"</td></tr>";
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+let members = [];
+const ADMIN_PASS = "Anjam123";
+let lastRenew = new Date().toLocaleString('en-GB');
+
+app.get('/manifest.json', (req,res)=>{
+  res.json({
+    name:"App Anjam Jani",
+    short_name:"Anjam Jani",
+    start_url:"/",
+    display:"standalone",
+    background_color:"#0a0a0f",
+    theme_color:"#6366f1",
+    icons:[{src:"https://cdn-icons-png.flaticon.com/512/3135/3135715.png",sizes:"512x512",type:"image/png"}]
+  })
 });
-return "<!DOCTYPE html><html dir='rtl' lang='ku'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Admin</title><style>body{background:#0f172a;color:#fff;font-family:sans-serif;padding:15px;max-width:1100px;margin:auto}.card{display:inline-block;width:30%;margin:1%;padding:15px;border-radius:12px;text-align:center}.green{background:#16a34a}.blue{background:#1e3a8a}.box{border:2px dashed #38bdf8;padding:20px;border-radius:12px;margin:15px 0;text-align:center;background:#1e293b}button{padding:10px 18px;border:none;border-radius:8px;margin:5px;cursor:pointer}table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;color:#000;border-radius:8px;overflow:hidden}th{background:#1e3a8a;color:#fff;padding:8px;font-size:12px}td{padding:6px;border-bottom:1px solid #ddd;text-align:center;font-size:12px}input{width:100%;padding:12px;border-radius:8px;border:none;margin-top:10px}</style></head><body>"
-+"<h2 style='text-align:center'>\uD83D\uDFE2 \u0626\u0647 \u062F\u0645\u064A\u0646 - \u0633\u0647 \u0648\u0632 = \u0644\u0647 \u0644\u064A\u0633\u062A \u0647\u0647 \u064A\u0647</h2>"
-+"<div style='text-align:center'><div class='card green'><div>\u0633\u0647 \u0648\u0632</div><h1>"+g+"</h1></div><div class='card blue'><div>\u062A\u0648\u0645\u0627\u0631</div><h1>"+g+"</h1></div><div class='card blue'><div>\u0633\u0647 \u0631\u0647 \u0643\u0649</div><h1>"+m+"</h1></div></div>"
-+"<div class='box'><h3>\uD83D\uDCC2 \u0628\u0627\u0631\u0643\u0631\u062F\u0646\u0649 \u0644\u064A\u0633\u062A\u0649 1 \u0645\u0644\u064A\u0648\u0646 (CSV)</h3><input type='file' id='file' accept='.csv,.txt'><br><br><button onclick='uploadFile()' style='background:#16a34a;color:#fff'>\u0628\u0627\u0631\u0643\u0631\u062F\u0646</button><p style='font-size:12px'>\u0641\u0648\u0631\u0645\u0627\u062A: voter,name,city<br>\u0646\u0645\u0648\u0648\u0646\u0647: 123456,\u0626\u0647 \u0646\u062C\u0627\u0645,\u0643\u0647 \u0631\u0643\u0648\u0643</p><div id='msg'></div></div>"
-+"<h3>\u062F\u0648\u0627\u064A\u064A\u0646 \u062A\u0648\u0645\u0627\u0631 - \u0633\u0647 \u0648\u0632\u0647 \u0643\u0627\u0646 ( \u0644\u0648\u0643\u0647 \u064A\u0634\u0646 + \u0643\u0627\u062A + \u0645\u0648\u0628\u0627\u064A\u0644 )</h3><table><tr><th>#</th><th>\u0646\u0627\u0648</th><th>\u0698\u0645\u0627\u0631\u0647 \u0649 \u062F\u0647 \u0646\u06AF\u062F\u0647 \u0631</th><th>\u062F\u0648\u062E</th><th>\u0644\u0648\u0643\u0647 \u064A\u0634\u0646</th><th>\u0643\u0627\u062A / \u0645\u0648\u0628\u0627\u064A\u0644</th></tr>"+rows+"</table>"
-+"<div style='margin-top:15px;text-align:center'><button onclick='location.href=\"/m\"' style='background:#475569;color:#fff'>\uD83C\uDFE0 \u0641\u0648\u0631\u0645\u0649 \u0626\u0647 \u0646\u062F\u0627\u0645</button><button onclick='downloadCSV()' style='background:#1e3a8a;color:#fff'>\uD83D\uDCE5 \u062F\u0627\u06AF\u0631\u062A\u0646\u0649 CSV</button><button onclick='location.reload()' style='background:#16a34a;color:#fff'>\uD83D\uDD04 \u0646\u0648\u0649 \u0643\u0631\u062F\u0646\u0647 \u0648\u0647</button></div>"
-+"<script>async function uploadFile(){let f=document.getElementById('file').files[0];if(!f)return alert('فایل هه لبژیره');let t=await f.text();document.getElementById('msg').innerHTML='...چاوه ریبه';let r=await fetch('/upload-master',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});let j=await r.json();document.getElementById('msg').innerHTML='ته واو بوو: '+j.count;setTimeout(()=>location.reload(),1000)}function downloadCSV(){location.href='/download-green'}</script></body></html>";
+
+app.get('/', (req,res)=>{
+res.send(`<!DOCTYPE html><html lang="ku" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>App Anjam Jani</title><link rel="manifest" href="/manifest.json"><script src="https://cdn.tailwindcss.com"></script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet"><style>*{font-family:Inter,system-ui} body{height:100vh; overflow:hidden}</style></head>
+<body class="bg-[#0a0a0f] flex items-center justify-center p-4">
+<div class="w-full max-w-[520px] bg-white rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden">
+<div class="bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] p-7 text-white text-center"><h1 class="text-[28px] font-black tracking-tight">App Anjam Jani</h1><p class="opacity-80 text-[14px] mt-1">سیستەمی تۆمارکردنی ئەندامان</p></div>
+<div class="p-7 space-y-4">
+<input id="name" class="w-full p-4 rounded-xl border border-gray-200 focus:border-[#6366f1] focus:ring-4 focus:ring-violet-100 outline-none transition text-[15px]" placeholder="ناوی تەواو *">
+<input id="phone" class="w-full p-4 rounded-xl border border-gray-200 focus:border-[#6366f1] focus:ring-4 focus:ring-violet-100 outline-none transition text-[15px]" placeholder="ژمارەی مۆبایل">
+<input id="city" class="w-full p-4 rounded-xl border border-gray-200 focus:border-[#6366f1] focus:ring-4 focus:ring-violet-100 outline-none transition text-[15px]" placeholder="شار - کەرکوک">
+<input id="note" class="w-full p-4 rounded-xl border border-gray-200 focus:border-[#6366f1] focus:ring-4 focus:ring-violet-100 outline-none transition text-[15px]" placeholder="تێبینی">
+<button onclick="add()" class="w-full bg-[#0a0a0f] text-white p-4 rounded-xl font-bold text-[16px] hover:bg-black transition active:scale-[0.98]">➕ ناردنی زانیاری</button>
+<div id="ok" class="hidden bg-emerald-50 text-emerald-700 p-4 rounded-xl text-center font-bold">✅ نێردرا! سوپاس</div>
+<a href="/admin" class="block text-center text-[13px] text-gray-400 mt-2">چوونە ژوورەوەی ئادمین →</a>
+</div></div>
+<script>
+async function add(){
+ const name=document.getElementById('name').value.trim();
+ if(!name){alert('تکایە ناو بنووسە');return}
+ const body={name,phone:phone.value, city:city.value, note:note.value};
+ const r=await fetch('/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ if(r.ok){['name','phone','city','note'].forEach(id=>document.getElementById(id).value=''); const o=document.getElementById('ok');o.classList.remove('hidden'); setTimeout(()=>o.classList.add('hidden'),2500)}
 }
-
-function memberHTML(){
-let rows="";
-green.slice(-20).reverse().forEach(x=>{
-let t=x.time?new Date(x.time).toLocaleTimeString():"";
-rows+="<tr><td>"+x.voter+"</td><td>"+(x.name||"")+"</td><td>"+t+"</td></tr>";
+<\/script></body></html>`);
 });
-return "<!DOCTYPE html><html dir='rtl' lang='ku'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Member</title><style>body{font-family:sans-serif;padding:20px;max-width:600px;margin:auto;background:#f8fafc}input{width:70%;padding:14px;border-radius:8px;border:1px solid #ccc;font-size:16px}button{padding:14px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:16px}table{width:100%;border-collapse:collapse;margin-top:15px;background:#fff}td,th{border:1px solid #ddd;padding:8px;text-align:center}</style></head><body>"
-+"<h2>\u0641\u0648\u0631\u0645\u0649 \u0626\u0647 \u0646\u062F\u0627\u0645</h2>"
-+"<div style='display:flex;gap:8px'><input id='v' placeholder='\u06AF\u0647 \u0631\u0627\u0646 \u0644\u064A\u0631\u0647 \u0628\u0646\u0648\u0648\u0633\u0647...'><button onclick='go()'>\u0646\u0627\u0631\u062F\u0646</button></div>"
-+"<div id='o' style='margin-top:15px'></div>"
-+"<p id='locStatus' style='font-size:12px;color:#666'></p>"
-+"<h3>\u0644\u064A\u0633\u062A\u0649 \u0633\u0647 \u0648\u0632: "+green.length+"</h3><table><tr><th>\u0698\u0645\u0627\u0631\u0647</th><th>\u0646\u0627\u0648</th><th>\u0643\u0627\u062A</th></tr>"+rows+"</table>"
-+"<script>"
-+"let myLat=null,myLon=null,myAcc=null;\n"
-+"document.getElementById('locStatus').innerHTML='... داوای لوکه یشن ده که م';\n"
-+"if(navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{myLat=pos.coords.latitude;myLon=pos.coords.longitude;myAcc=pos.coords.accuracy;document.getElementById('locStatus').innerHTML='\u2705 \u0644\u0648\u0643\u0647 \u064A\u0634\u0646 \u0648\u0647 \u0631\u06AF\u06CC\u0631\u0627: '+myLat.toFixed(4)+','+myLon.toFixed(4)},err=>{document.getElementById('locStatus').innerHTML='\u274C \u0644\u0648\u0643\u0647 \u064A\u0634\u0646 \u0646\u0647 \u062F\u0631\u0627: '+err.message},{enableHighAccuracy:true,timeout:10000});}\n"
-+"async function go(){let v=document.getElementById('v').value.trim();if(!v)return;let device=navigator.userAgent;let btn=document.querySelector('button');btn.disabled=true;btn.innerHTML='...';try{let r=await fetch('/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voter:v,lat:myLat,lon:myLon,acc:myAcc,device:device})});let j=await r.json();document.getElementById('o').innerHTML=j.ok?'<b style=color:green>\u2705 \u0646\u0627\u0631\u062F\u0631\u0627: '+(j.data.name||v)+'</b>':'<b style=color:red>\u274C '+(j.msg||'')+'</b>';if(j.ok){document.getElementById('v').value='';setTimeout(()=>location.reload(),1200)}}catch(e){document.getElementById('o').innerHTML='هه له یه ک هه یه'}btn.disabled=false;btn.innerHTML='\u0646\u0627\u0631\u062F\u0646'}<\/script></body></html>";
+
+app.get('/admin', (req,res)=>{
+res.send(`<!DOCTYPE html><html dir="rtl" lang="ku"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>App Anjam Jani - Admin</title><link rel="manifest" href="/manifest.json"><script src="https://cdn.tailwindcss.com"></script><style>body{height:100vh; overflow:hidden} *{scrollbar-width:thin}</style></head>
+<body class="bg-[#f6f6f9] text-[#0a0a0f] flex h-screen">
+<div id="login" class="m-auto w-full max-w-[420px] bg-white rounded-[20px] p-8 shadow-xl"><h1 class="text-2xl font-black text-center">App Anjam Jani</h1><p class="text-center text-gray-500 text-sm mt-1 mb-6">پانێڵی ئادمین</p><input id="pass" type="password" placeholder="پاسۆرد: Anjam123" class="w-full p-4 rounded-xl border border-gray-200 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"><button onclick="login()" class="w-full mt-4 bg-[#0a0a0f] text-white p-4 rounded-xl font-bold hover:bg-black">چوونە ژوورەوە</button></div>
+
+<div id="panel" class="hidden w-full h-screen flex">
+<!-- SIDEBAR -->
+<div class="w-[300px] bg-[#0a0a0f] text-white flex flex-col p-6 shrink-0">
+<h1 class="text-[22px] font-black">App Anjam Jani</h1><p class="text-white/50 text-[12px] mt-1">ADMIN PANEL</p>
+<div class="mt-8 space-y-3">
+<div class="bg-white/10 rounded-xl p-4"><p class="text-[11px] text-white/50">کۆی ئەندامان</p><p id="count" class="text-[28px] font-black">0</p></div>
+<div class="bg-white/10 rounded-xl p-4"><p class="text-[11px] text-white/50">دوایین تازەکردنەوە</p><p id="renewTime" class="text-[12px] font-bold mt-1">${lastRenew}</p></div>
+<button onclick="renew()" class="w-full bg-gradient-to-br from-violet-600 to-indigo-600 p-4 rounded-xl font-bold text-[13px] hover:opacity-90">🔄 سێرڤەر تازە بکەرەوە<br><span class="text-[10px] opacity-70">مانگانە 1 کلیک - بۆ ئەوەی نەوەستێت</span></button>
+<button onclick="delSelected()" class="w-full bg-white/10 p-3 rounded-xl text-[13px] font-bold">🗑️ سڕینەوەی هەڵبژێردراوەکان</button>
+<button onclick="exportCSV()" class="w-full bg-white/10 p-3 rounded-xl text-[13px] font-bold">📥 داگرتنی Excel</button>
+</div>
+<div class="mt-auto flex gap-2"><a href="/" class="flex-1 bg-white/10 p-3 rounded-xl text-center text-[13px]">ئەندام</a><button onclick="logout()" class="flex-1 bg-white/10 p-3 rounded-xl text-[13px]">دەرچوون</button></div>
+</div>
+<!-- MAIN -->
+<div class="flex-1 flex flex-col h-screen">
+<div class="p-5 bg-white border-b flex gap-3 items-center"><input id="search" oninput="render()" placeholder="🔍 گەڕان بە ناو، مۆبایل، شار..." class="flex-1 p-3 rounded-xl border border-gray-200 bg-[#f6f6f9] outline-none focus:border-violet-500"><button onclick="load()" class="bg-[#0a0a0f] text-white px-5 py-3 rounded-xl text-[13px] font-bold">نوێکردنەوە</button></div>
+<div id="list" class="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 content-start"></div>
+</div>
+</div>
+<script>
+let all=[];
+function login(){if(document.getElementById('pass').value==='${ADMIN_PASS}'){localStorage.setItem('admin','ok'); show()} else alert('هەڵەیە')}
+function show(){document.getElementById('login').classList.add('hidden');document.getElementById('panel').classList.remove('hidden');document.getElementById('panel').classList.add('flex');load()}
+function logout(){localStorage.removeItem('admin');location.reload()}
+if(localStorage.getItem('admin')=='ok') show();
+async function load(){const r=await fetch('/list'); all=await r.json(); document.getElementById('count').innerText=all.length; render()}
+function render(){
+ const q=document.getElementById('search').value.toLowerCase();
+ const f=all.filter(m=> (m.name+m.phone+m.city).toLowerCase().includes(q));
+ const box=document.getElementById('list'); box.innerHTML='';
+ f.forEach(m=>{
+  box.innerHTML+=\`<div class="bg-white rounded-[18px] p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col">
+   <div class="flex justify-between items-start"><div class="flex gap-3"><input type="checkbox" value="\${m.id}" class="chk w-5 h-5 rounded mt-1"><div><p class="font-black text-[15px]">\${m.name}</p><p class="text-[12px] text-gray-500">\${m.phone||'-'} • \${m.city||'-'}</p></div></div><button onclick="del(\${m.id})" class="bg-[#0a0a0f] text-white w-8 h-8 rounded-full text-[14px]">✕</button></div>
+   <div class="mt-3 bg-[#f6f6f9] rounded-xl p-3 text-[12px] text-gray-600">\${m.note||'بێ تێبینی'}<div class="text-[10px] text-gray-400 mt-1">\${m.time}</div></div>
+  </div>\`;
+ });
 }
+async function del(id){if(!confirm('دڵنیای لە سڕینەوە؟'))return; await fetch('/delete/'+id,{method:'DELETE'}); load()}
+async function delSelected(){const ids=[...document.querySelectorAll('.chk:checked')].map(c=>c.value); if(!ids.length){alert('هیچت هەڵنەبژاردووە');return} if(!confirm(ids.length+' دانە بسڕمەوە؟'))return; for(let id of ids){await fetch('/delete/'+id,{method:'DELETE'})} load()}
+function exportCSV(){window.location='/export'}
+async function renew(){const r=await fetch('/renew',{method:'POST'}); const d=await r.json(); document.getElementById('renewTime').innerText=d.time; alert('✅ بۆ 30 ڕۆژی تر تازە کرایەوە: '+d.time)}
+setInterval(()=>fetch('/ping'),600000);
+<\/script></body></html>`);
+});
 
-app.get('/',(q,r)=>r.redirect('/admin'));
-app.get('/m',(q,r)=>r.send(memberHTML()));
-app.get('/admin',(q,r)=>r.send(adminHTML()));
-app.get('/stats',(q,r)=>r.json({master:Object.keys(master).length,green:green.length}));
-app.get('/clear-green',(q,r)=>{green=[];r.json({ok:true})});
-app.get('/download-green',(q,r)=>{
-let csv="voter,name,city,lat,lon,device,time,ip\n";
-green.forEach(x=>{
-let t=x.time?new Date(x.time).toISOString():"";
-let dev=(x.device||"").replace(/,/g,' ');
-let ip=(x.ip||"");
-csv+=`${x.voter},${x.name||""},${x.city||""},${x.lat||""},${x.lon||""},"${dev}",${t},${ip}\n`;
-});
-r.setHeader('Content-Type','text/csv');
-r.setHeader('Content-Disposition','attachment; filename=green.csv');
-r.send(csv);
-});
-app.post('/add',(q,r)=>{
-let v=(q.body.voter||'').toString().replace(/\D/g,'');
-if(v.length<5)return r.json({ok:false,msg:'ژماره که هه له یه'});
-if(green.find(z=>z.voter==v))return r.json({ok:false,msg:'پیشتر زیادکراوه'});
-let f=master[v];
-if(!f)return r.json({ok:false,msg:'له مه سته ر نییه'});
-let entry={
-...f,
-lat:q.body.lat||null,
-lon:q.body.lon||null,
-acc:q.body.acc||null,
-device:q.body.device||r.headers['user-agent']||"",
-time:Date.now(),
-ip: (q.headers['x-forwarded-for']||"").split(',')[0] || q.ip || ""
-};
-green.push(entry);
-r.json({ok:true,data:f});
-});
-app.post('/upload-master',(q,r)=>{
-let c=0;
-(q.body.text||'').split('\n').forEach(l=>{
-if(!l.trim())return;
-let p=l.split(',');
-let v=(p[0]||'').replace(/\D/g,'').trim();
-if(v.length<5)return;
-master[v]={voter:v,name:(p[1]||'').trim(),city:(p[2]||'').trim()};
-c++;
-});
-r.json({ok:true,count:Object.keys(master).length,added:c});
-});
-app.listen(process.env.PORT||8080,'0.0.0.0',()=>console.log('up'));
+app.post('/add',(req,res)=>{ const {name,phone,city,note}=req.body; members.push({id:Date.now(),name,phone,city,note,time:new Date().toLocaleString('en-GB')}); res.json({ok:true}) });
+app.get('/list',(req,res)=>res.json(members.slice().reverse()));
+app.delete('/delete/:id',(req,res)=>{ members=members.filter(m=>m.id!=req.params.id); res.json({ok:true}) });
+app.post('/renew',(req,res)=>{ lastRenew=new Date().toLocaleString('en-GB'); res.json({ok:true,time:lastRenew}) });
+app.get('/ping',(req,res)=>res.json({ok:true}));
+app.get('/export',(req,res)=>{ let csv='ID,Name,Phone,City,Note,Time\\n'; members.forEach(m=>csv+=\`\${m.id},"\${m.name}","\${m.phone}","\${m.city}","\${m.note}","\${m.time}"\\n\`); res.header('Content-Type','text/csv'); res.attachment('App-Anjam-Jani.csv'); res.send(csv) });
+
+app.listen(PORT,()=>console.log('App Anjam Jani running '+PORT));
