@@ -1,20 +1,96 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json({limit:'500mb'}));
+
+// فایلە گرنگەکان (کۆد، پاسوۆرد، داتا) نابێت لە ڕێگەی وێبەوە بخوێنرێنەوە
+app.use((req, res, next) => {
+  if (/\.(js|json|md|env|lock|map)$/i.test(req.path) || /^\/(node_modules|\.git)/i.test(req.path)) return res.status(404).end();
+  next();
+});
+app.get('/', (req, res) => res.redirect('/login.html'));
 app.use(express.static('public'));
 app.use(express.static('.'));
 
 /* =====================================================================
-   بەشی نوێ: داتابەیس، ٧ لیست، ناردراوەکان، لیستی خێزانی
+   چوونەژوورەوە (Login) و ڕۆڵەکان
+   ===================================================================== */
+// پاسوۆردەکان بە شێوەی hash (scrypt) هەڵگیراون، نەک دەقی ڕاستەقینە
+const USERS = {
+  anjam: { role: 'admin',    salt: '9e7e3672febbf9d5264129765711b319', hash: '7af1d75de4a2a0ed14108e5f1a1eee018a2ef7189d91f0fe38ab41e43aad1fea' },
+  azhet: { role: 'employee', salt: 'aa05b08f00b7b285ad15cc21097c6d17', hash: '0ed85716112ce286ceca119ac8b7e521672d4bea6627c75ad6895e83d487a7db' }
+};
+const hasUser = u => Object.prototype.hasOwnProperty.call(USERS, u);
+const SECRET = crypto.createHash('sha256')
+  .update(process.env.SESSION_SECRET || process.env.DATABASE_URL || crypto.randomBytes(32).toString('hex')).digest();
+
+function sign(p) {
+  const b = Buffer.from(JSON.stringify(p)).toString('base64url');
+  return b + '.' + crypto.createHmac('sha256', SECRET).update(b).digest('base64url');
+}
+function verify(t) {
+  if (!t) return null;
+  const [b, s] = String(t).split('.');
+  if (!b || !s) return null;
+  const e = crypto.createHmac('sha256', SECRET).update(b).digest('base64url');
+  const A = Buffer.from(s), B = Buffer.from(e);
+  if (A.length !== B.length || !crypto.timingSafeEqual(A, B)) return null;
+  try { const p = JSON.parse(Buffer.from(b, 'base64url').toString()); return p.exp > Date.now() ? p : null } catch (e) { return null }
+}
+function getCookie(req, n) {
+  const m = (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(n + '='));
+  return m ? decodeURIComponent(m.slice(n.length + 1)) : null;
+}
+
+const fails = new Map(); // دژی حەدس کردنی پاسوۆرد
+app.post('/api/login', (req, res) => {
+  const ip = req.ip, f = fails.get(ip);
+  if (f && f.until > Date.now()) return res.status(429).json({ error: 'هەوڵی زۆر دراوە، ١٥ خولەک چاوەڕێ بکە' });
+  const u = String(req.body.username || '').trim().toLowerCase();
+  const p = String(req.body.password || '');
+  let ok = false;
+  if (hasUser(u)) {
+    const h = crypto.scryptSync(p, USERS[u].salt, 32);
+    ok = crypto.timingSafeEqual(h, Buffer.from(USERS[u].hash, 'hex'));
+  } else crypto.scryptSync(p, 'x', 32);
+  if (!ok) {
+    const n = ((f && f.n) || 0) + 1;
+    fails.set(ip, { n, until: n >= 8 ? Date.now() + 15 * 60 * 1000 : 0 });
+    return res.status(401).json({ error: 'ناوی بەکارهێنەر یان پاسوۆرد هەڵەیە' });
+  }
+  fails.delete(ip);
+  const token = sign({ u, exp: Date.now() + 12 * 3600 * 1000 });
+  res.setHeader('Set-Cookie', `sid=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${req.secure ? '; Secure' : ''}`);
+  res.json({ ok: true, role: USERS[u].role, username: u });
+});
+app.post('/api/logout', (req, res) => {
+  res.setHeader('Set-Cookie', 'sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+  res.json({ ok: true });
+});
+
+// پاسەوانی هەموو /api: ئەدمین هەموو شتێک، کارمەند تەنها ناردنی ژمارە
+app.use('/api', (req, res, next) => {
+  const s = verify(getCookie(req, 'sid'));
+  if (s && hasUser(s.u)) req.user = { username: s.u, role: USERS[s.u].role };
+  const p = req.path;
+  if (p === '/login' || p === '/logout') return next();
+  if (p === '/me') return req.user ? res.json(req.user) : res.status(401).json({ error: 'login' });
+  if (!req.user) return res.status(401).json({ error: 'پێویستە بچیتە ژوورەوە' });
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'employee' && (p === '/send' || p === '/my-recent')) return next();
+  res.status(403).json({ error: 'ڕێگەپێدراو نیت' });
+});
+
+/* =====================================================================
+   داتابەیس: ٧ لیست، ناردراوەکان، تۆماری کارمەندان، لیستی خێزانی
    ===================================================================== */
 const DB = process.env.DATABASE_URL;
-const ADMIN = process.env.ADMIN_KEY || '';
 const MAX_LISTS = 7;
 
-// ناوی خانەکان لە JSON ەکەتدا. ئەگەر ناوەکانت جیاوازن لێرە زیادیان بکە.
 const KEYS = {
   voter: ['voterNumber'],
   family: ['familyNumber', 'familyNo', 'familyNum', 'familyId', 'family', 'رقم العائلة', 'رقم العائلي']
@@ -24,156 +100,40 @@ const FIELDS = [
   ['ناوی دەنگدەر', ['voterName', 'name', 'fullName', 'اسم الناخب']],
   ['موالید', ['birth', 'birthYear', 'birthDate', 'dob', 'مواليد']],
   ['ژمارەی خێزان', KEYS.family],
-  ['ژمارەی ناوەندی تۆمار', ['registrationCenterNumber', 'regCenterNumber', 'registrationCenterNo', 'registrationNumber', 'رقم مركز التسجيل']],
-  ['ناوی ناوەندی تۆمار', ['registrationCenterName', 'regCenterName', 'registrationName', 'اسم مركز التسجيل']],
+  ['ژمارەی ناوەندی تۆمار', ['regCenterNumber', 'registrationCenterNumber', 'registrationCenterNo', 'registrationNumber', 'رقم مركز التسجيل']],
+  ['ناوی ناوەندی تۆمار', ['regCenterName', 'registrationCenterName', 'registrationName', 'اسم مركز التسجيل']],
   ['ژمارەی بنکەی دەنگدان', ['pollingCenterNumber', 'pollingNumber', 'pollingCenterNo', 'رقم مركز الاقتراع']],
   ['ناوی بنکەی دەنگدان', ['pollingCenterName', 'pollingName', 'اسم مركز الاقتراع']],
   ['ناونیشانی بنکە', ['pollingCenterAddress', 'pollingAddress', 'address', 'عنوان مركز الاقتراع']],
   ['ژمارەی مۆبایل', ['phone', 'mobile', 'phoneNumber', 'رقم الهاتف']]
 ];
-
 function pick(o, keys) {
   for (const k of keys) if (o[k] !== undefined && o[k] !== null && String(o[k]).trim() !== '') return o[k];
   return undefined;
 }
-
-const LISTS_HTML = String.raw`<!DOCTYPE html>
-<html lang="ckb" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>بەڕێوەبردنی لیستەکان</title>
-<style>
-  body{font-family:Tahoma,Arial,sans-serif;margin:0;background:#f4f5f7;color:#222}
-  header{background:#1e3a5f;color:#fff;padding:12px 16px}
-  nav{display:flex;gap:6px;padding:10px;flex-wrap:wrap}
-  nav button{flex:1;padding:10px;border:0;border-radius:8px;background:#dde3ea;font-size:15px;cursor:pointer}
-  nav button.on{background:#1e3a5f;color:#fff}
-  .box{padding:10px 12px}
-  .card{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px #0002}
-  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
-  button.b{padding:8px 12px;border:0;border-radius:8px;color:#fff;cursor:pointer;font-size:14px}
-  .up{background:#2e7d32}.dl{background:#1565c0}.rm{background:#c62828}
-  progress{width:100%}
-  table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
-  th,td{border:1px solid #ccc;padding:5px;text-align:right}
-  th{background:#e8ecf1}
-  .g{background:#c8f0c8}.r{background:#f8c9c9}
-  .wrap{overflow-x:auto}
-  .fam{margin-bottom:14px}
-  .famh{font-weight:bold;margin:6px 0}
-  input[type=password]{padding:6px;border:1px solid #bbb;border-radius:6px}
-  .pager{display:flex;gap:8px;align-items:center;margin:8px 0}
-  .pager button{padding:6px 12px}
-</style>
-</head>
-<body>
-<header>
-  <b>بەڕێوەبردنی لیستەکان</b>
-  <span style="float:left"><input id="key" type="password" placeholder="کلیلی ئەدمین (ئەگەر هەبوو)"></span>
-</header>
-<nav>
-  <button class="on" data-t="lists">٧ لیست</button>
-  <button data-t="sent">ناردراوەکان</button>
-  <button data-t="fam">لیستی خێزانی</button>
-</nav>
-
-<div class="box" id="t-lists"></div>
-<div class="box" id="t-sent" style="display:none"></div>
-<div class="box" id="t-fam" style="display:none"></div>
-
-<script>
-let FIELDS=[];
-const $=id=>document.getElementById(id);
-const keyEl=$('key'); keyEl.value=localStorage.getItem('adminKey')||'';
-keyEl.onchange=()=>localStorage.setItem('adminKey',keyEl.value);
-const H=()=>({'Content-Type':'application/json','x-admin-key':keyEl.value});
-const pick=(o,ks)=>{for(const k of ks){if(o[k]!==undefined&&o[k]!==null&&String(o[k]).trim()!=='')return o[k]}return ''};
-
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
-  ['lists','sent','fam'].forEach(t=>$('t-'+t).style.display=(t===b.dataset.t)?'':'none');
-  if(b.dataset.t==='lists')loadLists();
-  if(b.dataset.t==='sent'){sentOff=0;loadSent()}
-  if(b.dataset.t==='fam'){famOff=0;loadFam()}
-});
-
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function rowCells(o,cls){
-  return '<tr class="'+cls+'">'+FIELDS.map(f=>'<td>'+esc(pick(o,f[1]))+'</td>').join('')+'</tr>';
+const clip = (s, n) => String(s === undefined || s === null ? '' : s).slice(0, n);
+function normDigits(s) {
+  return String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 }
-function head(){return '<tr>'+FIELDS.map(f=>'<th>'+f[0]+'</th>').join('')+'</tr>'}
-
-/* ===== ٧ لیست ===== */
-async function loadLists(){
-  const r=await (await fetch('/api/lists')).json();
-  $('t-lists').innerHTML=r.map(l=>
-   '<div class="card"><b>لیستی '+l.list+'</b> — '+l.count.toLocaleString()+' دەنگدەر'+
-   '<div class="row">'+
-   '<input type="file" accept=".json" id="f'+l.list+'">'+
-   '<button class="b up" onclick="upload('+l.list+')">بارکردن</button>'+
-   '<button class="b dl" onclick="download('+l.list+')">داگرتن</button>'+
-   '<button class="b rm" onclick="del('+l.list+')">سڕینەوە</button></div>'+
-   '<div id="p'+l.list+'"></div></div>').join('');
+function deviceString(ua, dev) {
+  let os = '', model = clip(dev && dev.model, 60), br = '';
+  if (/Android/i.test(ua)) {
+    os = 'Android ' + ((ua.match(/Android\s([\d.]+)/) || [])[1] || '');
+    if (!model) { const m = ua.match(/Android[^;]*;\s*([^;)]+?)(?:\sBuild|[;)])/); if (m && m[1].trim().length > 1) model = m[1].trim(); }
+  } else if (/iPhone|iPad|iPod/.test(ua)) {
+    os = (/iPad/.test(ua) ? 'iPad' : 'iPhone') + ' iOS ' + ((ua.match(/OS ([\d_]+)/) || [])[1] || '').replace(/_/g, '.');
+  } else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  if (/Edg\//.test(ua)) br = 'Edge'; else if (/OPR\//.test(ua)) br = 'Opera';
+  else if (/Firefox\//.test(ua)) br = 'Firefox'; else if (/Chrome\//.test(ua)) br = 'Chrome';
+  else if (/Safari\//.test(ua)) br = 'Safari';
+  return [model, os.trim(), br].filter(Boolean).join(' · ') || 'نەزانراو';
 }
-async function upload(n){
-  const file=$('f'+n).files[0]; if(!file)return alert('فایلێک هەڵبژێرە');
-  const p=$('p'+n); p.innerHTML='خوێندنەوەی فایل...';
-  let data;
-  try{const j=JSON.parse(await file.text()); data=Array.isArray(j)?j:j.data}catch(e){return p.innerHTML='فایلەکە JSON ی دروست نییە'}
-  if(!Array.isArray(data))return p.innerHTML='فایلەکە دەبێت array بێت';
-  const B=5000; p.innerHTML='<progress max="'+data.length+'" value="0"></progress><div id="pt'+n+'"></div>';
-  const bar=p.querySelector('progress');
-  for(let i=0;i<data.length;i+=B){
-    const res=await fetch('/api/lists/'+n+'/upload',{method:'POST',headers:H(),body:JSON.stringify({data:data.slice(i,i+B)})});
-    if(!res.ok){const e=await res.json().catch(()=>({}));return p.innerHTML='هەڵە: '+(e.error||res.status)+' (لە دێڕی '+i+')'}
-    bar.value=Math.min(i+B,data.length); $('pt'+n).textContent=bar.value.toLocaleString()+' / '+data.length.toLocaleString();
-  }
-  loadLists();
-}
-function download(n){location='/api/lists/'+n+'/download?key='+encodeURIComponent(keyEl.value)}
-async function del(n){
-  if(!confirm('دڵنیایت لە سڕینەوەی لیستی '+n+' ؟'))return;
-  const r=await fetch('/api/lists/'+n,{method:'DELETE',headers:H()});
-  if(!r.ok)return alert('هەڵە: '+r.status);
-  loadLists();
-}
-
-/* ===== ناردراوەکان ===== */
-let sentOff=0;
-async function loadSent(){
-  const L=100, r=await (await fetch('/api/sent?limit='+L+'&offset='+sentOff)).json();
-  $('t-sent').innerHTML='<b>کۆی ناردراو: '+r.total.toLocaleString()+'</b>'+
-   pager(sentOff,L,r.total,'sent')+
-   '<div class="wrap"><table>'+head()+r.rows.map(o=>rowCells(o,'g')).join('')+'</table></div>';
-}
-
-/* ===== لیستی خێزانی ===== */
-let famOff=0;
-async function loadFam(){
-  const L=30, r=await (await fetch('/api/family-list?limit='+L+'&offset='+famOff)).json();
-  $('t-fam').innerHTML='<b>ژمارەی خێزانەکان: '+r.total.toLocaleString()+'</b>'+
-   pager(famOff,L,r.total,'fam')+
-   r.families.map(f=>'<div class="fam"><div class="famh">خێزان: '+esc(f.family)+'</div><div class="wrap"><table>'+head()+
-     f.members.map(m=>rowCells(m.data,m.sent?'g':'r')).join('')+'</table></div></div>').join('');
-}
-function pager(off,L,total,w){
-  return '<div class="pager"><button onclick="go(\''+w+'\','+(off-L)+')" '+(off<=0?'disabled':'')+'>پێشوو</button>'+
-   '<span>'+(total?off+1:0)+' - '+Math.min(off+L,total)+'</span>'+
-   '<button onclick="go(\''+w+'\','+(off+L)+')" '+(off+L>=total?'disabled':'')+'>دواتر</button></div>';
-}
-function go(w,o){ if(w==='sent'){sentOff=Math.max(0,o);loadSent()}else{famOff=Math.max(0,o);loadFam()} }
-
-fetch('/api/fields').then(r=>r.json()).then(f=>{FIELDS=f;loadLists()});
-</script>
-</body>
-</html>`;
 
 function addon(app) {
-  app.get(['/lists', '/lists.html'], (req, res) => res.type('html').send(LISTS_HTML));
-
   if (!DB) {
-    console.log('DATABASE_URL نییە - بەشی نوێ کار ناکات');
+    console.log('DATABASE_URL نییە - بەشی داتابەیس کار ناکات');
     return;
   }
   const pool = new Pool({
@@ -196,26 +156,27 @@ function addon(app) {
       voter TEXT PRIMARY KEY,
       at TIMESTAMPTZ DEFAULT now()
     );
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS username TEXT;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS acc REAL;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS ip TEXT;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS device TEXT;
+    ALTER TABLE sent ADD COLUMN IF NOT EXISTS ua TEXT;
+    CREATE TABLE IF NOT EXISTS send_log(
+      id BIGSERIAL PRIMARY KEY,
+      at TIMESTAMPTZ DEFAULT now(),
+      username TEXT, voter TEXT, result TEXT,
+      lat DOUBLE PRECISION, lng DOUBLE PRECISION, acc REAL,
+      ip TEXT, device TEXT, ua TEXT
+    );
   `).catch(e => console.log('DB error:', e.message));
 
-  const auth = (req, res, next) => {
-    if (!ADMIN) return next();
-    if ((req.get('x-admin-key') || req.query.key) === ADMIN) return next();
-    res.status(401).json({ error: 'کلیلی ئەدمین هەڵەیە' });
-  };
   const wrap = fn => async (req, res, next) => {
     try { await ready; await fn(req, res, next); }
     catch (e) { console.log(e); if (!res.headersSent) res.status(500).json({ error: e.message }); }
   };
 
-  let hasT = 0, hasV = false;
-  async function hasData() {
-    if (Date.now() - hasT > 10000) {
-      hasV = (await pool.query('SELECT 1 FROM voters LIMIT 1')).rows.length > 0;
-      hasT = Date.now();
-    }
-    return hasV;
-  }
   let cntT = 0, cntV = 0;
   async function totalCount() {
     if (Date.now() - cntT > 30000) {
@@ -225,32 +186,58 @@ function addon(app) {
     return cntV;
   }
 
-  // ناردنی ژمارە لەلایەن کارمەندەوە (جێگەی /api/send ی کۆن دەگرێتەوە، هەمان شێوە)
-  app.post('/api/send', wrap(async (req, res, next) => {
-    if (!(await hasData())) return next();
-    const n = String(req.body.voterNumber ?? '').trim();
-    const r = await pool.query('SELECT data FROM voters WHERE voter=$1', [n]);
-    if (!r.rows.length) {
-      return res.json({ found: false, message: 'ئەم ژمارەیە ئەو ژمارەیەیە کە لەو لیستەی تۆ نییە کە لە سێرڤەرەکە هەتە' });
+  // ===== ناردنی ژمارە لەلایەن کارمەندەوە (شوێن + کات + ئامێر + IP تۆمار دەکرێت) =====
+  const MSG = {
+    ok: 'نێردرا ✓',
+    dup: 'ئەم ژمارەیە پێشتر نێردراوە',
+    notfound: 'ئەم ژمارەیە ئەو ژمارەیەیە کە لەو لیستەی تۆ نییە کە لە سێرڤەرەکە هەتە'
+  };
+  app.post('/api/send', wrap(async (req, res) => {
+    const n = normDigits(req.body.voterNumber === undefined ? '' : req.body.voterNumber).trim();
+    if (!n) return res.status(400).json({ error: 'ژمارەی دەنگدەر بنووسە' });
+    const { lat, lng, accuracy } = req.body;
+    if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return res.status(400).json({ error: 'location_required', message: 'پێویستە شوێنی مۆبایلەکەت (Location) ڕێگەپێبدەیت' });
     }
-    await pool.query('INSERT INTO sent(voter) VALUES($1) ON CONFLICT DO NOTHING', [n]);
-    res.json({ found: true, data: r.rows[0].data });
+    const acc = typeof accuracy === 'number' && isFinite(accuracy) ? accuracy : null;
+    const ua = clip(req.get('user-agent'), 400);
+    const device = deviceString(ua, req.body.device);
+    const ip = req.ip;
+    const user = req.user.username;
+
+    const f = await pool.query('SELECT 1 FROM voters WHERE voter=$1', [n]);
+    let result;
+    if (!f.rows.length) result = 'notfound';
+    else {
+      const ins = await pool.query(
+        `INSERT INTO sent(voter,username,lat,lng,acc,ip,device,ua) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT DO NOTHING RETURNING voter`, [n, user, lat, lng, acc, ip, device, ua]);
+      result = ins.rows.length ? 'ok' : 'dup';
+    }
+    await pool.query(
+      'INSERT INTO send_log(username,voter,result,lat,lng,acc,ip,device,ua) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [user, clip(n, 60), result, lat, lng, acc, ip, device, ua]);
+    res.json({ result, found: result !== 'notfound', message: MSG[result] });
   }));
 
-  app.get('/api/list', wrap(async (req, res, next) => {
-    if (!(await hasData())) return next();
+  app.get('/api/my-recent', wrap(async (req, res) => {
+    const r = await pool.query('SELECT voter,result,at FROM send_log WHERE username=$1 ORDER BY id DESC LIMIT 15', [req.user.username]);
+    res.json(r.rows);
+  }));
+
+  // سازگار لەگەڵ کۆدی کۆن
+  app.get('/api/list', wrap(async (req, res) => {
     const s = await pool.query('SELECT v.data FROM sent s JOIN voters v ON v.voter=s.voter ORDER BY s.at');
     res.json({ allCount: await totalCount(), sent: s.rows.map(r => r.data) });
   }));
-
-  app.delete('/api/clear', wrap(async (req, res, next) => {
-    if (!(await hasData())) return next();
+  app.delete('/api/clear', wrap(async (req, res) => {
     await pool.query('DELETE FROM sent');
     res.json({ ok: true });
   }));
 
   app.get('/api/fields', (req, res) => res.json(FIELDS));
 
+  // ===== ٧ لیست =====
   app.get('/api/lists', wrap(async (req, res) => {
     const r = await pool.query('SELECT list_no, count(*)::int c FROM voters GROUP BY list_no');
     const out = [];
@@ -261,7 +248,7 @@ function addon(app) {
     res.json(out);
   }));
 
-  app.post('/api/lists/:n/upload', auth, wrap(async (req, res) => {
+  app.post('/api/lists/:n/upload', wrap(async (req, res) => {
     const n = parseInt(req.params.n, 10);
     if (!(n >= 1 && n <= MAX_LISTS)) return res.status(400).json({ error: 'ژمارەی لیست هەڵەیە' });
     const rows = req.body.data;
@@ -271,7 +258,7 @@ function addon(app) {
       if (!o || typeof o !== 'object') continue;
       const v = pick(o, KEYS.voter);
       if (v === undefined) continue;
-      m.set(String(v).trim(), o);
+      m.set(normDigits(String(v)).trim(), o);
     }
     const vs = [], fs_ = [], ds = [];
     for (const [v, o] of m) {
@@ -290,19 +277,19 @@ function addon(app) {
         [n, vs, fs_, ds]
       );
     }
-    hasT = 0; cntT = 0;
+    cntT = 0;
     res.json({ ok: true, received: rows.length, saved: vs.length });
   }));
 
-  app.delete('/api/lists/:n', auth, wrap(async (req, res) => {
+  app.delete('/api/lists/:n', wrap(async (req, res) => {
     const n = parseInt(req.params.n, 10);
     if (!(n >= 1 && n <= MAX_LISTS)) return res.status(400).json({ error: 'ژمارەی لیست هەڵەیە' });
     const r = await pool.query('DELETE FROM voters WHERE list_no=$1', [n]);
-    hasT = 0; cntT = 0;
+    cntT = 0;
     res.json({ ok: true, deleted: r.rowCount });
   }));
 
-  app.get('/api/lists/:n/download', auth, wrap(async (req, res) => {
+  app.get('/api/lists/:n/download', wrap(async (req, res) => {
     const n = parseInt(req.params.n, 10);
     if (!(n >= 1 && n <= MAX_LISTS)) return res.status(400).json({ error: 'ژمارەی لیست هەڵەیە' });
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -321,14 +308,29 @@ function addon(app) {
     res.end(']');
   }));
 
+  // ===== ناردراوەکان (لەگەڵ زانیاری کارمەند) =====
   app.get('/api/sent', wrap(async (req, res) => {
     const limit = Math.min(+req.query.limit || 100, 500), off = +req.query.offset || 0;
     const t = await pool.query('SELECT count(*)::int c FROM sent');
     const r = await pool.query(
-      'SELECT v.data FROM sent s JOIN voters v ON v.voter=s.voter ORDER BY s.at DESC LIMIT $1 OFFSET $2', [limit, off]);
-    res.json({ total: t.rows[0].c, rows: r.rows.map(x => x.data) });
+      `SELECT v.data, s.username, s.at, s.lat, s.lng, s.acc, s.ip, s.device
+       FROM sent s JOIN voters v ON v.voter=s.voter ORDER BY s.at DESC LIMIT $1 OFFSET $2`, [limit, off]);
+    res.json({
+      total: t.rows[0].c,
+      rows: r.rows.map(x => ({ data: x.data, meta: { username: x.username, at: x.at, lat: x.lat, lng: x.lng, acc: x.acc, ip: x.ip, device: x.device } }))
+    });
   }));
 
+  // ===== تۆماری هەموو ناردنەکانی کارمەندان =====
+  app.get('/api/log', wrap(async (req, res) => {
+    const limit = Math.min(+req.query.limit || 100, 500), off = +req.query.offset || 0;
+    const t = await pool.query('SELECT count(*)::int c FROM send_log');
+    const r = await pool.query(
+      'SELECT at, username, voter, result, lat, lng, acc, ip, device FROM send_log ORDER BY id DESC LIMIT $1 OFFSET $2', [limit, off]);
+    res.json({ total: t.rows[0].c, rows: r.rows });
+  }));
+
+  // ===== لیستی خێزانی =====
   app.get('/api/family-list', wrap(async (req, res) => {
     const limit = Math.min(+req.query.limit || 30, 100), off = +req.query.offset || 0;
     const t = await pool.query(
