@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 
-app.use(express.json());
+app.use(express.json({limit: '500mb'}));
 app.use(express.static('public'));
 
 let sent = [];
@@ -20,6 +20,31 @@ function loadData(){
   }catch(e){ console.log(e.message); }
   return [];
 }
+
+// NEW: Upload JSON data (converted in browser, so server never crashes)
+app.post('/api/upload-json',(req,res)=>{
+  try{
+    const incoming = req.body.data;
+    if(!Array.isArray(incoming)) return res.status(400).json({error:'data must be array'});
+    
+    const dataPath = path.join(__dirname,'public','data.json');
+    let existing = [];
+    try{ existing = JSON.parse(fs.readFileSync(dataPath,'utf8')); }catch(e){}
+    if(!Array.isArray(existing)) existing = [];
+
+    const map = new Map();
+    [...existing, ...incoming].forEach(o=>{
+      if(o.voterNumber) map.set(String(o.voterNumber).trim(), o);
+    });
+    const finalData = Array.from(map.values());
+    
+    fs.writeFileSync(dataPath, JSON.stringify(finalData, null, 2), 'utf8');
+    res.json({ok:true, added: incoming.length, total: finalData.length});
+  }catch(e){
+    console.error(e);
+    res.status(500).json({error:e.message});
+  }
+});
 
 app.post('/api/send',(req,res)=>{
   const data = loadData();
