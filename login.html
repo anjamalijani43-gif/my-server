@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>چوونەژوورەوە</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f4f9;--card:#fff;--text:#1c2733;--muted:#6b7a8c;--line:#dfe5ee;--brand:#1e3a8a;--brand2:#3b82f6}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1722;--card:#18222f;--text:#e7edf5;--muted:#93a1b3;--line:#273445}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));font-family:'Noto Sans Arabic',Tahoma,Arial,sans-serif;color:var(--text)}
+.box{width:100%;max-width:380px;background:var(--card);border-radius:18px;padding:28px 22px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+h1{margin:0 0 4px;font-size:22px;text-align:center}
+p{margin:0 0 20px;text-align:center;color:var(--muted);font-size:14px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+input{width:100%;padding:12px;font-size:16px;font-family:inherit;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);direction:ltr;text-align:left}
+input:focus{outline:2px solid var(--brand2);border-color:transparent}
+button{width:100%;margin-top:20px;padding:13px;font-size:16px;font-family:inherit;font-weight:600;border:0;border-radius:10px;background:var(--brand);color:#fff;cursor:pointer}
+button:disabled{opacity:.6}
+#err{display:none;margin-top:14px;padding:10px 12px;border-radius:10px;background:#fee2e2;color:#b91c1c;font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+<form class="box" id="f">
+  <h1>چوونەژوورەوە</h1>
+  <p>ناوی بەکارهێنەر و پاسوۆرد بنووسە</p>
+  <label for="u">ناوی بەکارهێنەر</label>
+  <input id="u" autocomplete="username" autocapitalize="none" autocorrect="off" required>
+  <label for="p">پاسوۆرد</label>
+  <input id="p" type="password" autocomplete="current-password" required>
+  <button id="b" type="submit">چوونەژوورەوە</button>
+  <div id="err"></div>
+</form>
+<script>
+const go=r=>location.replace(r==='admin'?'/admin.html':'/index.html');
+fetch('/api/me').then(r=>r.ok?r.json():null).then(m=>{ if(m) go(m.role) }).catch(()=>{});
+document.getElementById('f').onsubmit=async e=>{
+  e.preventDefault();
+  const b=document.getElementById('b'), err=document.getElementById('err');
+  b.disabled=true; err.style.display='none';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:document.getElementById('u').value,password:document.getElementById('p').value})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    go(j.role);
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; b.disabled=false }
+};
+</script>
+</body>
+</html>
