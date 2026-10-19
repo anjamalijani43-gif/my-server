@@ -1,76 +1,61 @@
-// server.js - Node.js + SQLite + Express
-const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const cors = require('cors');
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سیستەمی دەنگدەر</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+<div class="max-w-6xl mx-auto">
+<h1 class="text-3xl font-bold text-center mb-2">سیستەمی دەنگدەر - کەرکوک ✅</h1>
+<p class="text-center text-gray-600 mb-6">تاقیکردنەوە - 15 دەنگدەر</p>
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+<div class="bg-white p-6 rounded-xl shadow mb-6">
+<textarea id="nums" class="w-full border-2 border-gray-300 p-4 rounded-lg h-32" placeholder="ژمارەی دەنگدەر بنووسە: 1001, 1002, 9999"></textarea>
+<button onclick="check()" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg">ناردن بۆ سێرڤەر</button>
+</div>
 
-// DB setup
-const db = new sqlite3.Database('voters.db');
+<div id="result"></div>
+</div>
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS voters (
-    voter_number TEXT PRIMARY KEY,
-    voter_name TEXT,
-    birth_year TEXT,
-    family_number TEXT,
-    reg_center_number TEXT,
-    reg_center_name TEXT,
-    polling_center_number TEXT,
-    polling_center_name TEXT,
-    polling_center_address TEXT,
-    phone TEXT
-  )`);
+<script>
+const voters = [
+{"n":"1001","name":"محمد عبدالله احمد","birth":"1985","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"كركوك - حي الواسطي - قرب الجسر","phone":"07701234501"},
+{"n":"1002","name":"احمد عبدالله احمد","birth":"1988","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"حي الواسطي - قرب الجسر","phone":"07701234502"},
+{"n":"1003","name":"حسين عبدالله احمد","birth":"1992","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"كركوك - الابتدائية","phone":"07701234503"},
+{"n":"1004","name":"عباس عبدالله احمد","birth":"1995","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"مدرسة ازادي الابتدائية","phone":"07701234504"},
+{"n":"1005","name":"فارس عبدالله احمد","birth":"1999","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"مدرسة ازادي الابتدائية","phone":"07701234505"},
+{"n":"2001","name":"علي حسن محمد","birth":"1978","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"كركوك - رحيم اوا - الشارع الرئيسي","phone":"07701234506"},
+{"n":"2002","name":"حسن علي محمد","birth":"1982","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"مدرسة ثوراو الاعدادية","phone":"07701234507"},
+{"n":"2003","name":"محمد علي محمد","birth":"1990","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"مدرسة ثوراو الاعدادية","phone":"07701234508"},
+{"n":"3001","name":"فاضلة كريم صالح","birth":"1987","fam":"FAM-003","regNum":"K-103","regName":"مركز تسجيل القادسية","pollNum":"P-503","pollName":"القادسية","addr":"كركوك - القادسية - قرب المستوصف","phone":"07701234509"},
+{"n":"3002","name":"زينب كريم صالح","birth":"1991","fam":"FAM-003","regNum":"K-103","regName":"مركز تسجيل القادسية","pollNum":"P-503","pollName":"القادسية","addr":"حي القادسية - قرب المستوصف","phone":"07701234510"}
+];
 
-  // Sample data - Kirkuk
-  const stmt = db.prepare(`INSERT OR REPLACE INTO voters VALUES (?,?,?,?,?,?,?,?,?,?)`);
-  const voters = [
-    ["1001","محمد عبدالله احمد","1985","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234501"],
-    ["1002","احمد عبدالله احمد","1988","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234502"],
-    ["1003","حسين عبدالله احمد","1992","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234503"],
-    ["1004","عباس عبدالله احمد","1995","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234504"],
-    ["1005","فارس عبدالله احمد","1999","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234505"],
-    ["2001","علي حسن محمد","1978","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234506"],
-    ["2002","حسن علي محمد","1982","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234507"],
-    ["2003","عمر علي محمد","1990","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234508"],
-    ["3001","فاطمة كريم صالح","1987","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234509"],
-    ["3002","زينب كريم صالح","1991","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234510"]
-  ];
-  voters.forEach(v => stmt.run(v));
-  stmt.finalize();
-});
-
-// POST /api/check
-app.post('/api/check', (req, res) => {
-  const numbers = req.body.numbers || [];
-  if (!numbers.length) return res.json({ found: [], notFound: [], families: {} });
-
-  const placeholders = numbers.map(() => '?').join(',');
-  db.all(`SELECT * FROM voters WHERE voter_number IN (${placeholders})`, numbers, (err, foundRows) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    const foundNumbers = foundRows.map(r => r.voter_number);
-    const notFound = numbers.filter(n => !foundNumbers.includes(n));
-
-    // Group families
-    const familyNumbers = [...new Set(foundRows.map(r => r.family_number))];
-    if (!familyNumbers.length) return res.json({ found: foundRows, notFound, families: {} });
-
-    const famPlaceholders = familyNumbers.map(() => '?').join(',');
-    db.all(`SELECT * FROM voters WHERE family_number IN (${famPlaceholders})`, familyNumbers, (err2, familyRows) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-
-      const families = {};
-      familyRows.forEach(row => {
-        if (!families[row.family_number]) families[row.family_number] = [];
-        families[row.family_number].push(row);
-      });
-
-      res.json({ found: foundRows, notFound, families });
+function check(){
+  const input = document.getElementById('nums').value.split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean);
+  const found = voters.filter(v=> input.includes(v.n));
+  const notFound = input.filter(x=> !voters.some(v=> v.n==x));
+  const famNums = [...new Set(found.map(f=>f.fam))];
+  
+  let html = '';
+  if(notFound.length){
+    html += `<div class="bg-red-100 border-2 border-red-400 p-4 rounded-lg mb-4"><h3 class="font-bold text-red-700">ئەم ژمارانە لە لیستەکەدا نین:</h3><p class="mt-2">${notFound.map(n=> `<span class="bg-red-200 px-3 py-1 rounded mr-2">${n}: ئەم ژمارەیە لە لیستەکەدا نییە ❌</span>`).join('')}</p></div>`;
+  }
+  if(found.length){
+    html += `<div class="bg-white p-4 rounded-xl shadow mb-4 overflow-auto"><h3 class="font-bold text-green-700 mb-3">✅ ${found.length} کەس دۆزرایەوە - نێردراو (سەوز)</h3><table class="w-full text-sm border"><thead class="bg-green-600 text-white"><tr><th class="p-2">رقم الناخب</th><th class="p-2">اسم الناخب</th><th class="p-2">مواليد</th><th class="p-2">رقم العائلي</th><th class="p-2">مركز التسجيل</th><th class="p-2">مركز الاقتراع</th><th class="p-2">الهاتف</th></tr></thead><tbody>${found.map(v=>`<tr class="bg-green-50 border-b"><td class="p-2">${v.n}</td><td class="p-2">${v.name}</td><td class="p-2">${v.birth}</td><td class="p-2">${v.fam}</td><td class="p-2">${v.regName}</td><td class="p-2">${v.pollName}</td><td class="p-2">${v.phone}</td></tr>`).join('')}</tbody></table></div>`;
+    
+    famNums.forEach(fam=>{
+      const famMembers = voters.filter(v=> v.fam==fam);
+      html += `<div class="bg-white p-4 rounded-xl shadow mb-4"><h3 class="font-bold mb-3">خێزان: ${fam} - ${famMembers.length} کەس</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${famMembers.map(m=>{
+        const sent = found.some(f=> f.n==m.n);
+        return `<div class="p-3 rounded-lg border ${sent?'bg-green-100 border-green-400':'bg-red-100 border-red-400'}"><b>${m.n}</b> - ${m.name} ${sent?'✅ نێردراو':'❌ نەنێردراو'}</div>`;
+      }).join('')}</div></div>`;
     });
-  });
-});
-
-app.listen(3000, () => console.log('Server running on http://localhost:3000'));
+  }
+  document.getElementById('result').innerHTML = html || '<p class="text-center text-gray-500">هیچ ژمارەیەک نەنووسراوە</p>';
+}
+</script>
+</body>
+</html>
