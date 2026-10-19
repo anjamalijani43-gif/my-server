@@ -1,95 +1,77 @@
-<!DOCTYPE html>
-<html dir="rtl" lang="ku">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>سیستەمی دەنگدان</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen p-3">
-<div id="L" class="max-w-md mx-auto mt-20 bg-white p-6 rounded-xl shadow">
-<h1 class="text-2xl font-bold text-center">سیستەمی دەنگدان</h1>
-<p class="text-center text-gray-600 mb-4">بەشی سێرڤەر</p>
-<input id="user" class="w-full border p-3 rounded mb-3" placeholder="یوزەرنەیم">
-<input id="pass" type="password" class="w-full border p-3 rounded mb-3" placeholder="پاسوورد">
-<button onclick="doLogin()" class="w-full bg-green-600 text-white p-3 rounded font-bold">چوونە ژوورەوە</button>
-<p class="text-xs text-center mt-3 text-gray-500">admin / admin123</p>
-</div>
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const app = express();
 
-<div id="A" class="hidden max-w-7xl mx-auto">
-<h1 class="text-2xl font-bold text-center mb-4">سیستەمی دەنگدان - سێرڤەر</h1>
+app.use(express.json({limit: '500mb'}));
+app.use(express.static('public'));
 
-<div class="bg-white p-4 rounded-xl shadow mb-4 flex flex-wrap gap-2">
-<button onclick="load()" class="bg-blue-600 text-white px-4 py-2 rounded">نوێکردنەوە</button>
-<button onclick="downloadCSV()" class="bg-green-600 text-white px-4 py-2 rounded">داگرتنی لیست</button>
-<button onclick="clearAll()" class="bg-red-600 text-white px-4 py-2 rounded">سڕینەوەی لیست</button>
-<label class="bg-purple-600 text-white px-4 py-2 rounded cursor-pointer">بارکردنی لیست<input type="file" id="upFile" class="hidden" accept=".json,.csv" onchange="upload(this)"></label>
-</div>
+let sent = [];
+let notFound = [];
 
-<div id="stats" class="grid grid-cols-3 gap-2 mb-4"></div>
-
-<div class="bg-white p-4 rounded-xl shadow mb-4 overflow-auto">
-<h2 class="font-bold text-lg mb-3">١- لیستی نێردراوەکان - ١٠ زانیاری</h2>
-<div id="list" class="overflow-auto"></div>
-</div>
-
-<div class="bg-white p-4 rounded-xl shadow mb-4">
-<h2 class="font-bold text-lg mb-3">٢- ژمارە نەدۆزراوەکان</h2>
-<div id="notFound"></div>
-</div>
-
-<div class="bg-white p-4 rounded-xl shadow">
-<h2 class="font-bold text-lg mb-3">٣- لیستی خێزانی - سەوز=نێردراو، سوور=نەنێردراو</h2>
-<div id="families"></div>
-</div>
-</div>
-
-<script>
-function doLogin(){let u=user.value.trim(),p=pass.value.trim();if(u==='admin'&&p==='admin123'){L.style.display='none';A.classList.remove('hidden');load()}else alert('admin / admin123')}
-async function load(){
- let r=await fetch('/api/list'); let d=await r.json();
- document.getElementById('stats').innerHTML=`<div class="bg-blue-100 p-3 rounded">کۆی گشتی: ${d.allCount}</div><div class="bg-green-100 p-3 rounded">نێردراو: ${d.sent.length}</div><div class="bg-red-100 p-3 rounded">نەدۆزراو: ${d.notFound.length}</div>`;
- 
- if(!d.sent.length) list.innerHTML='<p class="text-gray-500 p-4">هیچ نەنێردراوە</p>';
- else {
-   let html='<div class="overflow-x-auto"><table class="w-full text-xs border"><tr class="bg-gray-200"><th class="border p-1">رقم الناخب</th><th class="border p-1">اسم الناخب</th><th class="border p-1">مواليد</th><th class="border p-1">رقم العائلي</th><th class="border p-1">رقم مركز التسجيل</th><th class="border p-1">اسم مركز التسجيل</th><th class="border p-1">رقم مركز الاقتراع</th><th class="border p-1">اسم مركز الاقتراع</th><th class="border p-1">عنوان</th><th class="border p-1">رقم الهاتف</th></tr>';
-   d.sent.forEach(v=>{
-     html+=`<tr class="bg-green-50"><td class="border p-1">${v.voterNumber||''}</td><td class="border p-1">${v.name||''}</td><td class="border p-1">${v.birth||''}</td><td class="border p-1">${v.familyNumber||''}</td><td class="border p-1">${v.regCenterNumber||''}</td><td class="border p-1">${v.regCenterName||''}</td><td class="border p-1">${v.pollCenterNumber||''}</td><td class="border p-1">${v.pollCenterName||''}</td><td class="border p-1">${v.pollCenterAddress||''}</td><td class="border p-1">${v.phone||''}</td></tr>`;
-   });
-   html+='</table></div>'; list.innerHTML=html;
- }
- 
- if(!d.notFound.length) notFound.innerHTML='<p class="text-gray-500">هیچ</p>';
- else notFound.innerHTML=d.notFound.map(n=>`<div class="p-2 bg-red-50 border border-red-300 rounded mb-1">❌ ${n.number} - ئەم ژمارەیە لەو لیستەی تۆ نییە کە لە سێرڤەرەکە هەتە</div>`).join('');
- 
- // لیستی خێزانی
- let famHtml='';
- for(let famNum in d.families){
-   let members=d.families[famNum];
-   let sentNums=new Set(d.sent.map(s=>String(s.voterNumber)));
-   famHtml+=`<div class="border rounded p-3 mb-3"><h3 class="font-bold mb-2">خێزان: ${famNum} (${members.length} کەس)</h3><div class="flex flex-wrap gap-2">`;
-   members.forEach(m=>{
-     let isSent=sentNums.has(String(m.voterNumber));
-     let cls=isSent?'bg-green-500 text-white':'bg-red-500 text-white';
-     famHtml+=`<span class="px-3 py-1 rounded ${cls}">${m.voterNumber} - ${m.name} ${isSent?'✅':'❌'}</span>`;
-   });
-   famHtml+='</div></div>';
- }
- document.getElementById('families').innerHTML=famHtml||'<p>هیچ خێزانێک نییە</p>';
+function loadData(){
+  try{
+    const p = path.join(__dirname,'public','data.json');
+    if(fs.existsSync(p)){
+      const txt = fs.readFileSync(p,'utf8');
+      const j = JSON.parse(txt);
+      return Array.isArray(j) ? j : [];
+    }
+  }catch(e){ console.log(e.message); }
+  return [];
 }
-function downloadCSV(){ window.location='/api/download'; }
-async function clearAll(){ if(!confirm('سڕینەوە؟'))return; await fetch('/api/clear',{method:'DELETE'}); load(); }
-async function upload(input){
- let file=input.files[0]; if(!file)return;
- let text=await file.text();
- try{
-   let data=JSON.parse(text);
-   let r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-   let res=await r.json();
-   alert('بارکرا: '+res.count+' کەس - بۆ 7 لیستی 1 ملیۆن کەسی ئامادەیە');
-   load();
- }catch(e){ alert('هەڵە لە فایلەکە: '+e.message); }
-}
-</script>
-</body>
-</html>
+
+// NEW: Upload JSON data (converted in browser, so server never crashes)
+app.post('/api/upload-json',(req,res)=>{
+  try{
+    const incoming = req.body.data;
+    if(!Array.isArray(incoming)) return res.status(400).json({error:'data must be array'});
+    
+    const dataPath = path.join(__dirname,'public','data.json');
+    let existing = [];
+    try{ existing = JSON.parse(fs.readFileSync(dataPath,'utf8')); }catch(e){}
+    if(!Array.isArray(existing)) existing = [];
+
+    const map = new Map();
+    [...existing, ...incoming].forEach(o=>{
+      if(o.voterNumber) map.set(String(o.voterNumber).trim(), o);
+    });
+    const finalData = Array.from(map.values());
+    
+    fs.writeFileSync(dataPath, JSON.stringify(finalData, null, 2), 'utf8');
+    res.json({ok:true, added: incoming.length, total: finalData.length});
+  }catch(e){
+    console.error(e);
+    res.status(500).json({error:e.message});
+  }
+});
+
+app.post('/api/send',(req,res)=>{
+  const data = loadData();
+  const num = String(req.body.voterNumber||'').trim();
+  const found = data.find(d=> String(d.voterNumber).trim()===num);
+  if(found){
+    sent.push({...found, time: new Date()});
+    res.json({found:true, data:[STRIPPED]
+  }else{
+    notFound.push({voterNumber:num, time: new Date()});
+    res.json({found:false});
+  }
+});
+
+app.get('/api/list',(req,res)=>{
+  const data = loadData();
+  const families={};
+  sent.forEach(s=>{
+    const f=s.familyNumber||'unknown';
+    if(!families[f]) families[f]=[];
+    families[f].push(s);
+  });
+  res.json({sent, notFound, families, allCount: data.length});
+});
+
+app.delete('/api/clear',(req,res)=>{ sent=[]; notFound=[]; res.json({ok:true}); });
+app.get('/health',(req,res)=>res.send('ok'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT,'0.0.0.0',()=>console.log('OK '+PORT));
