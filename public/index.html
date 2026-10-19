@@ -1,97 +1,76 @@
-<!DOCTYPE html>
-<html dir="rtl" lang="ku">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>سیستەمی دەنگدان</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-<div class="max-w-lg w-full">
-<h1 class="text-4xl font-bold text-center mb-8">سیستەمی دەنگدان</h1>
-<div class="grid gap-4">
-<a href="staff.html" class="bg-blue-600 text-white p-6 rounded-xl text-center text-xl font-bold">چوونە ژوورەوە وەک کارمەند</a>
-<a href="admin.html" class="bg-green-600 text-white p-6 rounded-xl text-center text-xl font-bold">چوونە ژوورەوە وەک سێرڤەر</a>
-</div>
-</div>
-</body>
-</html><!DOCTYPE html>
-<html dir="rtl" lang="ku">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>سیستەمی دەنگدان - کارمەند</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen p-4">
-<div id="login" class="max-w-md mx-auto mt-20 bg-white p-6 rounded-xl shadow">
-<h1 class="text-2xl font-bold text-center mb-2">سیستەمی دەنگدان</h1>
-<p class="text-center text-gray-600 mb-4">بەشی کارمەند</p>
-<input id="u" placeholder="یوزەرنەیم" class="w-full border p-3 rounded mb-3">
-<input id="p" type="password" placeholder="پاسوورد" class="w-full border p-3 rounded mb-3">
-<button onclick="login()" class="w-full bg-blue-600 text-white p-3 rounded font-bold">چوونە ژوورەوە</button>
-<p class="text-xs text-gray-500 mt-3 text-center">staff / 1234</p>
-</div>
+// server.js - Node.js + SQLite + Express
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const cors = require('cors');
 
-<div id="app" class="hidden max-w-2xl mx-auto">
-<h1 class="text-2xl font-bold text-center mb-6">سیستەمی دەنگدان</h1>
-<div class="bg-white p-6 rounded-xl shadow">
-<input id="num" placeholder="ژمارەی دەنگدەر: 1001" class="w-full border-2 p-4 rounded-lg text-lg" onkeyup="findName()">
-<div id="nameBox" class="mt-4 p-4 rounded-lg hidden"></div>
-<button id="sendBtn" onclick="send()" class="hidden w-full mt-4 bg-green-600 text-white p-3 rounded-lg font-bold">ناردن بۆ سێرڤەر</button>
-</div>
-<div id="msg" class="mt-4"></div>
-</div>
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-<script>
-const voters=[{n:"1001",name:"محمد عبدالله احمد"},{n:"1002",name:"احمد عبدالله احمد"},{n:"1003",name:"حسين عبدالله احمد"},{n:"2001",name:"علي حسن محمد"},{n:"2002",name:"حسن علي محمد"},{n:"3001",name:"فاضلة كريم صالح"}];
-let current=null;
-function login(){if(u.value=="staff"&&p.value=="1234"){loginDiv.classList.add("hidden");app.classList.remove("hidden")}else alert("هەڵە")}
-const loginDiv=document.getElementById("login"); const app=document.getElementById("app");
-function findName(){
-  const v=num.value.trim(); const f=voters.find(x=>x.n==v);
-  const box=document.getElementById("nameBox"); const btn=document.getElementById("sendBtn");
-  if(!v){box.classList.add("hidden");btn.classList.add("hidden");return}
-  box.classList.remove("hidden");
-  if(f){current=f; box.className="mt-4 p-4 rounded-lg bg-green-100 border border-green-400"; box.innerHTML=`✅ ناو: <b>${f.name}</b>`; btn.classList.remove("hidden")}
-  else{current=null; box.className="mt-4 p-4 rounded-lg bg-red-100 border border-red-400"; box.innerHTML=`❌ ئەم ژمارەیە لە لیستەکەدا نییە - ${v}`; btn.classList.add("hidden")}
-}
-function send(){
-  if(!current) return;
-  let sent=JSON.parse(localStorage.getItem("sentVoters")||"[]");
-  sent.push(current); localStorage.setItem("sentVoters",JSON.stringify(sent));
-  document.getElementById("msg").innerHTML=`<div class="bg-green-100 p-3 rounded border border-green-400">✅ نێردرا بۆ سێرڤەر: ${current.name}</div>`;
-  document.getElementById("num").value=""; findName();
-}
-</script>
-</body>
-</html><!DOCTYPE html>
-<html dir="rtl" lang="ku">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>سیستەمی دەنگدان - سێرڤەر</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen p-4">
-<div id="login" class="max-w-md mx-auto mt-20 bg-white p-6 rounded-xl shadow">
-<h1 class="text-2xl font-bold text-center mb-2">سیستەمی دەنگدان</h1>
-<p class="text-center text-gray-600 mb-4">بەشی سێرڤەر</p>
-<input id="u" placeholder="یوزەرنەیم" class="w-full border p-3 rounded mb-3">
-<input id="p" type="password" placeholder="پاسوورد" class="w-full border p-3 rounded mb-3">
-<button onclick="login()" class="w-full bg-green-600 text-white p-3 rounded font-bold">چوونە ژوورەوە</button>
-<p class="text-xs text-gray-500 mt-3 text-center">admin / admin123</p>
-</div>
+// DB setup
+const db = new sqlite3.Database('voters.db');
 
-<div id="app" class="hidden max-w-6xl mx-auto">
-<h1 class="text-2xl font-bold text-center mb-6">سیستەمی دەنگدان - سێرڤەر</h1>
-<div id="list" class="bg-white p-4 rounded-xl shadow"></div>
-<button onclick="clearAll()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">سڕینەوەی هەموو</button>
-</div>
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS voters (
+    voter_number TEXT PRIMARY KEY,
+    voter_name TEXT,
+    birth_year TEXT,
+    family_number TEXT,
+    reg_center_number TEXT,
+    reg_center_name TEXT,
+    polling_center_number TEXT,
+    polling_center_name TEXT,
+    polling_center_address TEXT,
+    phone TEXT
+  )`);
 
-<script>
-function login(){if(u.value=="admin"&&p.value=="admin123"){loginDiv.classList.add("hidden");app.classList.remove("hidden");show()}else alert("هەڵە")}
-const loginDiv=document.getElementById("login"); const app=document.getElementById("app");
-function show(){
-  const sent=JSON.parse(localStorage.getItem("sentVoters")||"[]");
-  if(!sent.length){list.innerHTML="<p class='text-gray-500'>هیچ نەنێردراوە</p>";return}
-  list.innerHTML=`<p class='font-bold mb-3'>${sent.length} کەس نێردراوە:</p><div class='space-y-2'>${sent.map(s=>`<div class='p-3 bg-green-50 border border-green-300 rounded'>${s.n} - ${s.name} ✅</div>`).join('')}</div>`;
-}
-function clearAll(){localStorage.removeItem("sentVoters");show()}
-</script>
-</body>
-</html>
+  // Sample data - Kirkuk
+  const stmt = db.prepare(`INSERT OR REPLACE INTO voters VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  const voters = [
+    ["1001","محمد عبدالله احمد","1985","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234501"],
+    ["1002","احمد عبدالله احمد","1988","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234502"],
+    ["1003","حسين عبدالله احمد","1992","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234503"],
+    ["1004","عباس عبدالله احمد","1995","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234504"],
+    ["1005","فارس عبدالله احمد","1999","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234505"],
+    ["2001","علي حسن محمد","1978","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234506"],
+    ["2002","حسن علي محمد","1982","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234507"],
+    ["2003","عمر علي محمد","1990","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234508"],
+    ["3001","فاطمة كريم صالح","1987","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234509"],
+    ["3002","زينب كريم صالح","1991","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234510"]
+  ];
+  voters.forEach(v => stmt.run(v));
+  stmt.finalize();
+});
+
+// POST /api/check
+app.post('/api/check', (req, res) => {
+  const numbers = req.body.numbers || [];
+  if (!numbers.length) return res.json({ found: [], notFound: [], families: {} });
+
+  const placeholders = numbers.map(() => '?').join(',');
+  db.all(`SELECT * FROM voters WHERE voter_number IN (${placeholders})`, numbers, (err, foundRows) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const foundNumbers = foundRows.map(r => r.voter_number);
+    const notFound = numbers.filter(n => !foundNumbers.includes(n));
+
+    // Group families
+    const familyNumbers = [...new Set(foundRows.map(r => r.family_number))];
+    if (!familyNumbers.length) return res.json({ found: foundRows, notFound, families: {} });
+
+    const famPlaceholders = familyNumbers.map(() => '?').join(',');
+    db.all(`SELECT * FROM voters WHERE family_number IN (${famPlaceholders})`, familyNumbers, (err2, familyRows) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      const families = {};
+      familyRows.forEach(row => {
+        if (!families[row.family_number]) families[row.family_number] = [];
+        families[row.family_number].push(row);
+      });
+
+      res.json({ found: foundRows, notFound, families });
+    });
+  });
+});
+
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));
