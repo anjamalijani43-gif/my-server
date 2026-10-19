@@ -1,31 +1,29 @@
 const express = require('express');
 const path = require('path');
 const app = express();
-
 app.use(express.json());
-app.use(express.static('public'));
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ئەمە گرنگە بۆ Not Found
+let sentVoters = []; // لێرە هەڵدەگیرێت
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/health', (req, res) => {
-  res.send('OK - Server is working');
+app.post('/api/send', (req, res) => {
+  sentVoters.push(req.body);
+  console.log('نێردرا:', req.body);
+  res.json({ok:true});
 });
 
-// ئەگەر data.json هەبێت
-let members = [];
-try{
-  members = require('./data.json');
-}catch(e){}
+app.get('/api/list', (req, res) => {
+  res.json(sentVoters);
+});
 
-app.get('/api/members', (req,res)=> res.json(members));
-app.post('/api/members', (req,res)=>{
-  members.push(req.body);
+app.delete('/api/clear', (req,res)=>{
+  sentVoters=[];
   res.json({ok:true});
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log('Server running on '+PORT));
+app.listen(PORT, ()=>console.log('Server on '+PORT));
