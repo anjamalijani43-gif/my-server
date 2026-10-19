@@ -1,12 +1,76 @@
-<!DOCTYPE html>
-<html dir="rtl">
-<head>
-<meta charset="utf-8">
-<title>سێرڤەر ئیش دەکات</title>
-</head>
-<body style="text-align:center; padding:50px; font-family:sans-serif">
-<h1 style="color:green">✅ سێرڤەرەکە ئیش دەکات</h1>
-<p>my-server-production-1196.up.railway.app</p>
-<p>ئێستا هەنگاوی 2 بکە - server.js چاک بکە</p>
-</body>
-</html>
+// server.js - Node.js + SQLite + Express
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// DB setup
+const db = new sqlite3.Database('voters.db');
+
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS voters (
+    voter_number TEXT PRIMARY KEY,
+    voter_name TEXT,
+    birth_year TEXT,
+    family_number TEXT,
+    reg_center_number TEXT,
+    reg_center_name TEXT,
+    polling_center_number TEXT,
+    polling_center_name TEXT,
+    polling_center_address TEXT,
+    phone TEXT
+  )`);
+
+  // Sample data - Kirkuk
+  const stmt = db.prepare(`INSERT OR REPLACE INTO voters VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  const voters = [
+    ["1001","محمد عبدالله احمد","1985","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234501"],
+    ["1002","احمد عبدالله احمد","1988","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234502"],
+    ["1003","حسين عبدالله احمد","1992","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234503"],
+    ["1004","عباس عبدالله احمد","1995","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234504"],
+    ["1005","فارس عبدالله احمد","1999","FAM-001","K-101","مركز تسجيل كركوك الأولى","P-501","مدرسة آزادي الابتدائية","كركوك - حي الواسطي - قرب الجسر","07701234505"],
+    ["2001","علي حسن محمد","1978","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234506"],
+    ["2002","حسن علي محمد","1982","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234507"],
+    ["2003","عمر علي محمد","1990","FAM-002","K-102","مركز تسجيل رحيم آوا","P-502","مدرسة شوراو الاعدادية","كركوك - رحيم آوا - الشارع الرئيسي","07701234508"],
+    ["3001","فاطمة كريم صالح","1987","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234509"],
+    ["3002","زينب كريم صالح","1991","FAM-003","K-103","مركز تسجيل القادسية","P-503","مدرسة القادسية للبنات","كركوك - القادسية - قرب المستوصف","07701234510"]
+  ];
+  voters.forEach(v => stmt.run(v));
+  stmt.finalize();
+});
+
+// POST /api/check
+app.post('/api/check', (req, res) => {
+  const numbers = req.body.numbers || [];
+  if (!numbers.length) return res.json({ found: [], notFound: [], families: {} });
+
+  const placeholders = numbers.map(() => '?').join(',');
+  db.all(`SELECT * FROM voters WHERE voter_number IN (${placeholders})`, numbers, (err, foundRows) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const foundNumbers = foundRows.map(r => r.voter_number);
+    const notFound = numbers.filter(n => !foundNumbers.includes(n));
+
+    // Group families
+    const familyNumbers = [...new Set(foundRows.map(r => r.family_number))];
+    if (!familyNumbers.length) return res.json({ found: foundRows, notFound, families: {} });
+
+    const famPlaceholders = familyNumbers.map(() => '?').join(',');
+    db.all(`SELECT * FROM voters WHERE family_number IN (${famPlaceholders})`, familyNumbers, (err2, familyRows) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      const families = {};
+      familyRows.forEach(row => {
+        if (!families[row.family_number]) families[row.family_number] = [];
+        families[row.family_number].push(row);
+      });
+
+      res.json({ found: foundRows, notFound, families });
+    });
+  });
+});
+
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));
