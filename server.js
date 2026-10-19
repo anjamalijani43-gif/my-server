@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const app = express();
 
 app.use(express.json({limit: '500mb'}));
@@ -10,42 +9,58 @@ let allVoters = [];
 let sentVoters = [];
 let notFoundList = [];
 
-// بارکردنی data.json
+// هەوڵدەدەین data.json بخوێنینەوە، ئەگەر نەبوو ناکەوێت
 try {
-  const data = fs.readFileSync(path.join(__dirname, 'public', 'data.json'), 'utf8');
-  allVoters = JSON.parse(data);
-  console.log('Loaded', allVoters.length, 'voters');
-} catch(e){ console.log('data.json not found, will be empty'); }
-
-app.post('/api/send', (req, res) => {
-  const num = String(req.body.voterNumber || req.body.number || '').trim();
-  if(!num) return res.json({ok:false});
-
-  const found = allVoters.find(v => String(v.voterNumber||v.رقم_الناخب) === num);
-  
-  if(found){
-    if(!sentVoters.find(s=>String(s.voterNumber)===num)){
-      sentVoters.push({...found, sentAt: new Date()});
-    }
-    res.json({found:true, data:found});
-  } else {
-    notFoundList.push({number:num, date: new Date()});
-    res.json({found:false, number:num, note: "ئەم ژمارەیە لەو لیستەی تۆ نییە کە لە سێرڤەرەکە هەتە"});
+  const fs = require('fs');
+  const filePath = path.join(__dirname, 'public', 'data.json');
+  if(fs.existsSync(filePath)){
+    const raw = fs.readFileSync(filePath, 'utf8');
+    allVoters = JSON.parse(raw);
+    console.log('Loaded '+allVoters.length+' voters');
   }
+} catch(e){
+  console.log('data.json error, using empty:', e.message);
+  allVoters = [];
+}
+
+app.post('/api/send', (req,res)=>{
+  try{
+    const num = String(req.body.voterNumber||'').trim();
+    if(!num) return res.json({found:false, number:num});
+    const found = allVoters.find(v => String(v.voterNumber) === num || String(v.رقم_الناخب) === num);
+    if(found){
+      if(!sentVoters.find(s=>String(s.voterNumber)===num)) sentVoters.push(found);
+      res.json({found:true, data:[STRIPPED]
+    } else {
+      notFoundList.push({number:num});
+      res.json({found:false, number:num});
+    }
+  }catch(e){ res.json({found:false, error:e.message}); }
 });
 
 app.get('/api/list', (req,res)=>{
-  // گروپکردنی خێزان
-  const families = {};
-  allVoters.forEach(v=>{
-    const fam = v.familyNumber || v.رقم_العائلي || 'unknown';
-    if(!families[fam]) families[fam]=[];
-    families[fam].push(v);
-  });
-  res.json({sent: sentVoters, notFound: notFoundList, families, allCount: allVoters.length});
+  try{
+    const families = {};
+    allVoters.forEach(v=>{
+      const fam = v.familyNumber || 'FAM';
+      if(!families[fam]) families[fam]=[];
+      families[fam].push(v);
+    });
+    res.json({sent:sentVoters, notFound:notFoundList, families, allCount:allVoters.length});
+  }catch(e){ res.json({sent:[], notFound:[], families:{}, allCount:0}); }
 });
 
 app.get('/api/download', (req,res)=>{
-  const csv = ["رقم الناخب,اسم الناخب,مواليد,رقم العائلي,رقم مركز التسجيل,اسم مركز التسجيل,رقم مركز الاقتراع,اسم مركز الاقتراع,عنوان مركز الاقتراع,رقم الهاتف"];
-  sentVoters.forEach(v=>{
-    csv.push([v.voterNumber||v.رقم_الناخب, v.name||v.اسم_الناخب, v.birth||v.مواليد, v.familyNumber||v.رقم_العائلي, v.regCenterNumber||v.رقم_مركز_التسجيل, v.regCenterName||v.اسم_مركز_التسجيل, v.pollCenterNumber||v.رقم_مركز_
+  let csv = "voterNumber,name\n";
+  sentVoters.forEach(v=>{ csv+=`${v.voterNumber||''},${v.name||''}\n`; });
+  res.header('Content-Type','text/csv');
+  res.attachment('list.csv');
+  res.send(csv);
+});
+
+app.delete('/api/clear', (req,res)=>{ sentVoters=[]; notFoundList=[]; res.json({ok:true}); });
+
+app.get('/', (req,res)=> res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=>console.log('Running on '+PORT));
