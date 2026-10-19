@@ -1,77 +1,7 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const app = express();
-
-app.use(express.json({limit: '500mb'}));
 app.use(express.static('public'));
-
-let sent = [];
-let notFound = [];
-
-function loadData(){
-  try{
-    const p = path.join(__dirname,'public','data.json');
-    if(fs.existsSync(p)){
-      const txt = fs.readFileSync(p,'utf8');
-      const j = JSON.parse(txt);
-      return Array.isArray(j) ? j : [];
-    }
-  }catch(e){ console.log(e.message); }
-  return [];
-}
-
-// NEW: Upload JSON data (converted in browser, so server never crashes)
-app.post('/api/upload-json',(req,res)=>{
-  try{
-    const incoming = req.body.data;
-    if(!Array.isArray(incoming)) return res.status(400).json({error:'data must be array'});
-    
-    const dataPath = path.join(__dirname,'public','data.json');
-    let existing = [];
-    try{ existing = JSON.parse(fs.readFileSync(dataPath,'utf8')); }catch(e){}
-    if(!Array.isArray(existing)) existing = [];
-
-    const map = new Map();
-    [...existing, ...incoming].forEach(o=>{
-      if(o.voterNumber) map.set(String(o.voterNumber).trim(), o);
-    });
-    const finalData = Array.from(map.values());
-    
-    fs.writeFileSync(dataPath, JSON.stringify(finalData, null, 2), 'utf8');
-    res.json({ok:true, added: incoming.length, total: finalData.length});
-  }catch(e){
-    console.error(e);
-    res.status(500).json({error:e.message});
-  }
-});
-
-app.post('/api/send',(req,res)=>{
-  const data = loadData();
-  const num = String(req.body.voterNumber||'').trim();
-  const found = data.find(d=> String(d.voterNumber).trim()===num);
-  if(found){
-    sent.push({...found, time: new Date()});
-    res.json({found:true, data:[STRIPPED]
-  }else{
-    notFound.push({voterNumber:num, time: new Date()});
-    res.json({found:false});
-  }
-});
-
-app.get('/api/list',(req,res)=>{
-  const data = loadData();
-  const families={};
-  sent.forEach(s=>{
-    const f=s.familyNumber||'unknown';
-    if(!families[f]) families[f]=[];
-    families[f].push(s);
-  });
-  res.json({sent, notFound, families, allCount: data.length});
-});
-
-app.delete('/api/clear',(req,res)=>{ sent=[]; notFound=[]; res.json({ok:true}); });
 app.get('/health',(req,res)=>res.send('ok'));
-
+app.get('/',(req,res)=>res.send('Server is UP - data.json is empty'));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT,'0.0.0.0',()=>console.log('OK '+PORT));
+app.listen(PORT,'0.0.0.0',()=>console.log('UP '+PORT));
