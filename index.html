@@ -1,1 +1,128 @@
-<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>ناردن</title></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h1>سیستەمی ناردنی دەنگ ✅</h1><input id="num" placeholder="ژمارەی دەنگدەر" style="padding:12px;width:250px"><button onclick="send()" style="padding:12px">ناردن</button><div id="res" style="margin-top:20px;font-size:20px"></div><script>async function send(){let n=document.getElementById('num').value;let r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voterNumber:n})});let j=await r.json();document.getElementById('res').innerText=j.found?'✅ '+j.data.name:'❌ نەدۆزرایەوە'}</script><br><br><a href="/admin.html">Admin</a> | <a href="/admin-upload.html">Upload Excel</a></body></html>
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ناردنی ژمارەی دەنگدەر</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f4f9;--card:#fff;--text:#1c2733;--muted:#6b7a8c;--line:#dfe5ee;--brand:#1e3a8a;--brand2:#3b82f6;
+  --green:#16a34a;--greenbg:#dcfce7;--red:#dc2626;--redbg:#fee2e2;--amber:#b45309;--amberbg:#fef3c7}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1722;--card:#18222f;--text:#e7edf5;--muted:#93a1b3;--line:#273445;
+  --greenbg:#12331f;--redbg:#3a1717;--amberbg:#3a2a0e;--amber:#fbbf24}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans Arabic',Tahoma,Arial,sans-serif}
+.top{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:17px}
+.top button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-family:inherit;cursor:pointer}
+.page{max-width:460px;margin:0 auto;padding:14px}
+.card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(20,40,80,.08);margin-bottom:12px}
+.loc{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:12px}
+.dot{width:10px;height:10px;border-radius:50%;background:#9ca3af}
+.dot.ok{background:var(--green)} .dot.bad{background:var(--red)}
+input{width:100%;font-size:26px;padding:14px;text-align:center;letter-spacing:2px;font-family:inherit;border:2px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text);direction:ltr}
+input:focus{outline:none;border-color:var(--brand2)}
+#go{width:100%;margin-top:12px;padding:15px;font-size:18px;font-weight:700;font-family:inherit;border:0;border-radius:14px;background:var(--brand);color:#fff;cursor:pointer}
+#go:disabled{opacity:.55}
+#res{display:none;margin-top:14px;padding:14px;border-radius:12px;font-size:17px;font-weight:600;text-align:center}
+#res.ok{display:block;background:var(--greenbg);color:var(--green)}
+#res.dup{display:block;background:var(--amberbg);color:var(--amber)}
+#res.bad{display:block;background:var(--redbg);color:var(--red)}
+h3{margin:0 0 10px;font-size:15px}
+.item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.item:last-child{border:0}
+.item .n{direction:ltr;font-weight:600}
+.tag{font-size:12px;padding:2px 9px;border-radius:99px}
+.tag.ok{background:var(--greenbg);color:var(--green)} .tag.dup{background:var(--amberbg);color:var(--amber)} .tag.notfound{background:var(--redbg);color:var(--red)}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:8px}
+</style>
+</head>
+<body>
+<div class="top"><b id="who">...</b><button id="out">دەرچوون</button></div>
+<div class="page">
+  <div class="card">
+    <div class="loc"><span class="dot" id="dot"></span><span id="locTxt">شوێن (Location) دیاری نەکراوە</span></div>
+    <input id="num" inputmode="numeric" autocomplete="off" placeholder="ژمارەی دەنگدەر" autofocus>
+    <button id="go">ناردن</button>
+    <div id="res"></div>
+  </div>
+  <div class="card">
+    <h3>دوایین ناردنەکانم</h3>
+    <div id="recent"><div class="empty">...</div></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let busy=false, deviceInfo={};
+
+fetch('/api/me').then(r=>r.ok?r.json():Promise.reject()).then(m=>{
+  if(m.role!=='employee'&&m.role!=='admin') throw 0;
+  $('who').textContent=m.username; loadRecent();
+}).catch(()=>location.replace('/login.html'));
+
+$('out').onclick=async()=>{ await fetch('/api/logout',{method:'POST'}); location.replace('/login.html') };
+
+/* ئامێر: مۆدێلی مۆبایل (لە کرۆم) */
+(async()=>{
+  try{
+    deviceInfo.platform=navigator.platform||'';
+    deviceInfo.screen=screen.width+'x'+screen.height;
+    if(navigator.userAgentData&&navigator.userAgentData.getHighEntropyValues){
+      const h=await navigator.userAgentData.getHighEntropyValues(['model','platformVersion']);
+      if(h.model) deviceInfo.model=h.model;
+    }
+  }catch(e){}
+})();
+
+function getPos(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation) return reject(new Error('ئەم وێبگەڕە Location پشتگیری ناکات'));
+    navigator.geolocation.getCurrentPosition(resolve,e=>{
+      reject(new Error(e.code===1?'Location ڕێگەپێنەدراوە. لە ڕێکخستنی وێبگەڕ ڕێگەی پێبدە و دووبارە هەوڵبدەرەوە':'شوێن نەدۆزرایەوە، دووبارە هەوڵبدەرەوە'));
+    },{enableHighAccuracy:true,timeout:20000,maximumAge:15000});
+  });
+}
+function setLoc(ok,t){ $('dot').className='dot '+(ok?'ok':'bad'); $('locTxt').textContent=t }
+// داوای ڕێگە لە سەرەتاوە
+getPos().then(p=>setLoc(true,'شوێن دیاری کرا (±'+Math.round(p.coords.accuracy)+' م)')).catch(e=>setLoc(false,e.message));
+
+function show(cls,msg){ const r=$('res'); r.className=cls; r.textContent=msg }
+
+async function send(){
+  if(busy) return;
+  const v=$('num').value.trim();
+  if(!v) return show('bad','ژمارەی دەنگدەر بنووسە');
+  busy=true; $('go').disabled=true; $('res').className='';
+  try{
+    let pos;
+    try{ pos=await getPos(); setLoc(true,'شوێن دیاری کرا (±'+Math.round(pos.coords.accuracy)+' م)') }
+    catch(e){ setLoc(false,e.message); throw e }
+    const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      voterNumber:v, lat:pos.coords.latitude, lng:pos.coords.longitude, accuracy:pos.coords.accuracy, device:deviceInfo})});
+    if(r.status===401){ return location.replace('/login.html') }
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.message||j.error||('HTTP '+r.status));
+    show(j.result==='ok'?'ok':(j.result==='dup'?'dup':'bad'), j.message);
+    if(j.result!=='notfound'){ $('num').value='' }
+    loadRecent();
+  }catch(e){ show('bad',e.message) }
+  busy=false; $('go').disabled=false; $('num').focus();
+}
+$('go').onclick=send;
+$('num').addEventListener('keydown',e=>{ if(e.key==='Enter') send() });
+
+const LBL={ok:'نێردرا',dup:'پێشتر نێردرابوو',notfound:'لە لیست نییە'};
+async function loadRecent(){
+  try{
+    const r=await fetch('/api/my-recent'); if(!r.ok) return;
+    const a=await r.json();
+    $('recent').innerHTML=a.length?a.map(x=>'<div class="item"><span class="n">'+String(x.voter).replace(/[<>&"]/g,'')+'</span>'+
+      '<span><span class="tag '+x.result+'">'+(LBL[x.result]||'')+'</span> '+
+      '<small style="color:var(--muted)">'+new Date(x.at).toLocaleTimeString('en-GB',{timeZone:'Asia/Baghdad',hour:'2-digit',minute:'2-digit'})+'</small></span></div>').join('')
+      :'<div class="empty">هێشتا هیچ ژمارەیەکت نەناردووە</div>';
+  }catch(e){}
+}
+</script>
+</body>
+</html>
