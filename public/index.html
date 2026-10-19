@@ -1,61 +1,97 @@
 <!DOCTYPE html>
-<html lang="ku" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>سیستەمی دەنگدەر</title>
+<html dir="rtl" lang="ku">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سیستەمی دەنگدان</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
-<div class="max-w-6xl mx-auto">
-<h1 class="text-3xl font-bold text-center mb-2">سیستەمی دەنگدەر - کەرکوک ✅</h1>
-<p class="text-center text-gray-600 mb-6">تاقیکردنەوە - 15 دەنگدەر</p>
-
-<div class="bg-white p-6 rounded-xl shadow mb-6">
-<textarea id="nums" class="w-full border-2 border-gray-300 p-4 rounded-lg h-32" placeholder="ژمارەی دەنگدەر بنووسە: 1001, 1002, 9999"></textarea>
-<button onclick="check()" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg">ناردن بۆ سێرڤەر</button>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<div class="max-w-lg w-full">
+<h1 class="text-4xl font-bold text-center mb-8">سیستەمی دەنگدان</h1>
+<div class="grid gap-4">
+<a href="staff.html" class="bg-blue-600 text-white p-6 rounded-xl text-center text-xl font-bold">چوونە ژوورەوە وەک کارمەند</a>
+<a href="admin.html" class="bg-green-600 text-white p-6 rounded-xl text-center text-xl font-bold">چوونە ژوورەوە وەک سێرڤەر</a>
+</div>
+</div>
+</body>
+</html><!DOCTYPE html>
+<html dir="rtl" lang="ku">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سیستەمی دەنگدان - کارمەند</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+<div id="login" class="max-w-md mx-auto mt-20 bg-white p-6 rounded-xl shadow">
+<h1 class="text-2xl font-bold text-center mb-2">سیستەمی دەنگدان</h1>
+<p class="text-center text-gray-600 mb-4">بەشی کارمەند</p>
+<input id="u" placeholder="یوزەرنەیم" class="w-full border p-3 rounded mb-3">
+<input id="p" type="password" placeholder="پاسوورد" class="w-full border p-3 rounded mb-3">
+<button onclick="login()" class="w-full bg-blue-600 text-white p-3 rounded font-bold">چوونە ژوورەوە</button>
+<p class="text-xs text-gray-500 mt-3 text-center">staff / 1234</p>
 </div>
 
-<div id="result"></div>
+<div id="app" class="hidden max-w-2xl mx-auto">
+<h1 class="text-2xl font-bold text-center mb-6">سیستەمی دەنگدان</h1>
+<div class="bg-white p-6 rounded-xl shadow">
+<input id="num" placeholder="ژمارەی دەنگدەر: 1001" class="w-full border-2 p-4 rounded-lg text-lg" onkeyup="findName()">
+<div id="nameBox" class="mt-4 p-4 rounded-lg hidden"></div>
+<button id="sendBtn" onclick="send()" class="hidden w-full mt-4 bg-green-600 text-white p-3 rounded-lg font-bold">ناردن بۆ سێرڤەر</button>
+</div>
+<div id="msg" class="mt-4"></div>
 </div>
 
 <script>
-const voters = [
-{"n":"1001","name":"محمد عبدالله احمد","birth":"1985","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"كركوك - حي الواسطي - قرب الجسر","phone":"07701234501"},
-{"n":"1002","name":"احمد عبدالله احمد","birth":"1988","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"حي الواسطي - قرب الجسر","phone":"07701234502"},
-{"n":"1003","name":"حسين عبدالله احمد","birth":"1992","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"كركوك - الابتدائية","phone":"07701234503"},
-{"n":"1004","name":"عباس عبدالله احمد","birth":"1995","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"مدرسة ازادي الابتدائية","phone":"07701234504"},
-{"n":"1005","name":"فارس عبدالله احمد","birth":"1999","fam":"FAM-001","regNum":"K-101","regName":"مركز تسجيل كركوك الأولى","pollNum":"P-501","pollName":"حي الواسطي","addr":"مدرسة ازادي الابتدائية","phone":"07701234505"},
-{"n":"2001","name":"علي حسن محمد","birth":"1978","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"كركوك - رحيم اوا - الشارع الرئيسي","phone":"07701234506"},
-{"n":"2002","name":"حسن علي محمد","birth":"1982","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"مدرسة ثوراو الاعدادية","phone":"07701234507"},
-{"n":"2003","name":"محمد علي محمد","birth":"1990","fam":"FAM-002","regNum":"K-102","regName":"مركز تسجيل رحيم اوا","pollNum":"P-502","pollName":"رحيم اوا","addr":"مدرسة ثوراو الاعدادية","phone":"07701234508"},
-{"n":"3001","name":"فاضلة كريم صالح","birth":"1987","fam":"FAM-003","regNum":"K-103","regName":"مركز تسجيل القادسية","pollNum":"P-503","pollName":"القادسية","addr":"كركوك - القادسية - قرب المستوصف","phone":"07701234509"},
-{"n":"3002","name":"زينب كريم صالح","birth":"1991","fam":"FAM-003","regNum":"K-103","regName":"مركز تسجيل القادسية","pollNum":"P-503","pollName":"القادسية","addr":"حي القادسية - قرب المستوصف","phone":"07701234510"}
-];
-
-function check(){
-  const input = document.getElementById('nums').value.split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean);
-  const found = voters.filter(v=> input.includes(v.n));
-  const notFound = input.filter(x=> !voters.some(v=> v.n==x));
-  const famNums = [...new Set(found.map(f=>f.fam))];
-  
-  let html = '';
-  if(notFound.length){
-    html += `<div class="bg-red-100 border-2 border-red-400 p-4 rounded-lg mb-4"><h3 class="font-bold text-red-700">ئەم ژمارانە لە لیستەکەدا نین:</h3><p class="mt-2">${notFound.map(n=> `<span class="bg-red-200 px-3 py-1 rounded mr-2">${n}: ئەم ژمارەیە لە لیستەکەدا نییە ❌</span>`).join('')}</p></div>`;
-  }
-  if(found.length){
-    html += `<div class="bg-white p-4 rounded-xl shadow mb-4 overflow-auto"><h3 class="font-bold text-green-700 mb-3">✅ ${found.length} کەس دۆزرایەوە - نێردراو (سەوز)</h3><table class="w-full text-sm border"><thead class="bg-green-600 text-white"><tr><th class="p-2">رقم الناخب</th><th class="p-2">اسم الناخب</th><th class="p-2">مواليد</th><th class="p-2">رقم العائلي</th><th class="p-2">مركز التسجيل</th><th class="p-2">مركز الاقتراع</th><th class="p-2">الهاتف</th></tr></thead><tbody>${found.map(v=>`<tr class="bg-green-50 border-b"><td class="p-2">${v.n}</td><td class="p-2">${v.name}</td><td class="p-2">${v.birth}</td><td class="p-2">${v.fam}</td><td class="p-2">${v.regName}</td><td class="p-2">${v.pollName}</td><td class="p-2">${v.phone}</td></tr>`).join('')}</tbody></table></div>`;
-    
-    famNums.forEach(fam=>{
-      const famMembers = voters.filter(v=> v.fam==fam);
-      html += `<div class="bg-white p-4 rounded-xl shadow mb-4"><h3 class="font-bold mb-3">خێزان: ${fam} - ${famMembers.length} کەس</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${famMembers.map(m=>{
-        const sent = found.some(f=> f.n==m.n);
-        return `<div class="p-3 rounded-lg border ${sent?'bg-green-100 border-green-400':'bg-red-100 border-red-400'}"><b>${m.n}</b> - ${m.name} ${sent?'✅ نێردراو':'❌ نەنێردراو'}</div>`;
-      }).join('')}</div></div>`;
-    });
-  }
-  document.getElementById('result').innerHTML = html || '<p class="text-center text-gray-500">هیچ ژمارەیەک نەنووسراوە</p>';
+const voters=[{n:"1001",name:"محمد عبدالله احمد"},{n:"1002",name:"احمد عبدالله احمد"},{n:"1003",name:"حسين عبدالله احمد"},{n:"2001",name:"علي حسن محمد"},{n:"2002",name:"حسن علي محمد"},{n:"3001",name:"فاضلة كريم صالح"}];
+let current=null;
+function login(){if(u.value=="staff"&&p.value=="1234"){loginDiv.classList.add("hidden");app.classList.remove("hidden")}else alert("هەڵە")}
+const loginDiv=document.getElementById("login"); const app=document.getElementById("app");
+function findName(){
+  const v=num.value.trim(); const f=voters.find(x=>x.n==v);
+  const box=document.getElementById("nameBox"); const btn=document.getElementById("sendBtn");
+  if(!v){box.classList.add("hidden");btn.classList.add("hidden");return}
+  box.classList.remove("hidden");
+  if(f){current=f; box.className="mt-4 p-4 rounded-lg bg-green-100 border border-green-400"; box.innerHTML=`✅ ناو: <b>${f.name}</b>`; btn.classList.remove("hidden")}
+  else{current=null; box.className="mt-4 p-4 rounded-lg bg-red-100 border border-red-400"; box.innerHTML=`❌ ئەم ژمارەیە لە لیستەکەدا نییە - ${v}`; btn.classList.add("hidden")}
 }
+function send(){
+  if(!current) return;
+  let sent=JSON.parse(localStorage.getItem("sentVoters")||"[]");
+  sent.push(current); localStorage.setItem("sentVoters",JSON.stringify(sent));
+  document.getElementById("msg").innerHTML=`<div class="bg-green-100 p-3 rounded border border-green-400">✅ نێردرا بۆ سێرڤەر: ${current.name}</div>`;
+  document.getElementById("num").value=""; findName();
+}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html dir="rtl" lang="ku">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سیستەمی دەنگدان - سێرڤەر</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+<div id="login" class="max-w-md mx-auto mt-20 bg-white p-6 rounded-xl shadow">
+<h1 class="text-2xl font-bold text-center mb-2">سیستەمی دەنگدان</h1>
+<p class="text-center text-gray-600 mb-4">بەشی سێرڤەر</p>
+<input id="u" placeholder="یوزەرنەیم" class="w-full border p-3 rounded mb-3">
+<input id="p" type="password" placeholder="پاسوورد" class="w-full border p-3 rounded mb-3">
+<button onclick="login()" class="w-full bg-green-600 text-white p-3 rounded font-bold">چوونە ژوورەوە</button>
+<p class="text-xs text-gray-500 mt-3 text-center">admin / admin123</p>
+</div>
+
+<div id="app" class="hidden max-w-6xl mx-auto">
+<h1 class="text-2xl font-bold text-center mb-6">سیستەمی دەنگدان - سێرڤەر</h1>
+<div id="list" class="bg-white p-4 rounded-xl shadow"></div>
+<button onclick="clearAll()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">سڕینەوەی هەموو</button>
+</div>
+
+<script>
+function login(){if(u.value=="admin"&&p.value=="admin123"){loginDiv.classList.add("hidden");app.classList.remove("hidden");show()}else alert("هەڵە")}
+const loginDiv=document.getElementById("login"); const app=document.getElementById("app");
+function show(){
+  const sent=JSON.parse(localStorage.getItem("sentVoters")||"[]");
+  if(!sent.length){list.innerHTML="<p class='text-gray-500'>هیچ نەنێردراوە</p>";return}
+  list.innerHTML=`<p class='font-bold mb-3'>${sent.length} کەس نێردراوە:</p><div class='space-y-2'>${sent.map(s=>`<div class='p-3 bg-green-50 border border-green-300 rounded'>${s.n} - ${s.name} ✅</div>`).join('')}</div>`;
+}
+function clearAll(){localStorage.removeItem("sentVoters");show()}
 </script>
 </body>
 </html>
